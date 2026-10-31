@@ -1,15 +1,17 @@
 {
   "expo": {
     "name": "Unfeed",
-    "slug": "Unfeed",
+    "slug": "unfeed",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.link.unfeed"
     },
     "android": {
+      "package": "com.link.unfeed",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
