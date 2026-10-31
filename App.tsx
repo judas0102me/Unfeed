@@ -35,6 +35,8 @@ function DebugScreen() {
 
   const log = useCallback((line: string) => {
     console.log('[unfeed]', line);
+    // Solo en desarrollo: copia del log a un colector local para leerlo fuera del simulador.
+    if (__DEV__) fetch('http://127.0.0.1:8099', { method: 'POST', body: line }).catch(() => {});
     const time = new Date().toLocaleTimeString();
     setLogs(prev => [`${time}  ${line}`, ...prev].slice(0, 200));
   }, []);

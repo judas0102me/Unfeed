@@ -32,6 +32,13 @@ export function inspectPage(): string {
       const label = (el.getAttribute('aria-label') || el.textContent || '').trim();
       if (label && label.length < 40 && !labels.includes(label)) labels.push(label);
     });
+    // Estado de los botones del visor: para saber si un like/favorito está activo antes de pulsarlo.
+    ['browse-like-icon', 'browse-favorite-icon', 'video-share-repost'].forEach(k => {
+      const el = document.querySelector('[data-e2e="' + k + '"]');
+      if (!el) return;
+      const btn = el.closest('button') || el;
+      U.log(k + ' → ' + btn.outerHTML.replace(/<path[^>]*>/g, '').slice(0, 500));
+    });
     const body = document.body;
     U.post({
       type: 'inspect',
@@ -48,7 +55,7 @@ export function inspectPage(): string {
 // Navega al perfil con un clic dentro de la web (SPA), en lugar de recargar la página.
 export function goToProfile(): string {
   return wrapScript('goToProfile', `
-    const link = U.find(${json(TIKTOK.profileLink)});
+    const link = await U.waitFor(${json(TIKTOK.profileLink)}, 10000);
     if (!link) {
       U.post({ type: 'result', action: 'goToProfile', ok: false, detail: 'Enlace de perfil no encontrado' });
       return;
@@ -90,17 +97,30 @@ export function removeOne(category: Category, dryRun: boolean): string {
     const byLabel = () => ${json(category)} === 'reposts'
       ? Array.from(document.querySelectorAll('[aria-label]')).find(el => re.test(el.getAttribute('aria-label') || ''))
       : null;
-    const button = await U.waitUntil(() => U.find(${json(TIKTOK.actionButton[category])}) || byLabel(), 8000);
-    if (!button) return done(false, 'Botón de acción no encontrado en el visor');
-    U.log('Botón: ' + U.describe(button));
+    const found = await U.waitUntil(() => U.find(${json(TIKTOK.actionButton[category])}) || byLabel(), 8000);
+    if (!found) return done(false, 'Botón de acción no encontrado en el visor');
+    const button = found.closest('button, a') || found;
 
-    if (${json(dryRun)}) return done(true, 'Modo prueba: botón localizado, sin clic');
+    // Solo se pulsa si la acción está activa: un clic sobre un botón inactivo AGREGARÍA un like/favorito/repost.
+    const isActive = () => {
+      if (${json(category)} === 'reposts') return re.test(button.getAttribute('aria-label') || '');
+      if (button.getAttribute('aria-pressed') !== null) return button.getAttribute('aria-pressed') === 'true';
+      // Sin aria-pressed (favoritos): activo si algún trazo tiene color (p. ej. #FACE15, el amarillo de TikTok).
+      const neutral = /^(|none|currentcolor|#000|#000000|#fff|#ffffff|black|white)$/i;
+      return Array.from(button.querySelectorAll('svg, path, g')).some(n => !neutral.test(n.getAttribute('fill') || ''));
+    };
+    const describe = () => U.describe(button) + ' fills=' +
+      Array.from(button.querySelectorAll('svg, path, g')).map(n => n.getAttribute('fill')).filter(Boolean).join(',');
+    U.log('Botón: ' + describe() + ' · activo=' + isActive());
+
+    const close = () => { const c = U.find(${json(TIKTOK.closeViewer)}); if (c) c.click(); };
+    if (!isActive()) { close(); return done(false, 'La acción no está activa en este video; no se pulsa'); }
+    if (${json(dryRun)}) { close(); return done(true, 'Modo prueba: botón activo localizado, sin clic'); }
     button.click();
 
-    await U.sleep(1500);
-    U.log('Después: ' + U.describe(button));
-    const close = U.find(${json(TIKTOK.closeViewer)});
-    if (close) close.click();
-    done(true, 'Acción ejecutada');
+    const undone = await U.waitUntil(() => !isActive(), 4000);
+    U.log('Después: ' + describe());
+    close();
+    done(!!undone, undone ? 'Acción deshecha' : 'Se pulsó pero el estado no cambió');
   `);
 }
