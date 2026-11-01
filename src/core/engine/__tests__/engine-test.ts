@@ -1,5 +1,7 @@
 import type { BlockReason, Category, PlatformAdapter, RemoveResult } from '../../../platforms/types';
+import { memoryStore } from '../../testing/memoryStore';
 import { CleaningEngine, EngineOptions, EngineState, Quota } from '../engine';
+import { ProgressStore } from '../progress';
 
 type Item = { href: string; active: boolean };
 
@@ -284,6 +286,43 @@ describe('CleaningEngine', () => {
 
     expect(state.stopReason).toEqual({ kind: 'completed' });
     expect(removed).toEqual(['/r/0', '/r/1', '/r/2', '/r/3']);
+  });
+
+  it('al continuar otro día salta sin abrir lo ya tratado y al terminar borra el progreso', async () => {
+    const store = memoryStore();
+    const lists = { likes: makeItems('l', 6, [1]) };
+    const { adapter, removed, calls } = fakeAdapter(lists);
+
+    const first = await makeEngine(adapter, makeQuota(2), { progress: new ProgressStore(store, 'fake') }).engine.run(['likes']);
+    expect(first.stopReason).toEqual({ kind: 'daily_limit' });
+    expect(removed).toEqual(['/l/0', '/l/2']);
+
+    calls.length = 0;
+    const progress = new ProgressStore(store, 'fake');
+    const second = await makeEngine(adapter, makeQuota(), { progress }).engine.run(['likes']);
+
+    expect(second.stopReason).toEqual({ kind: 'completed' });
+    expect(removed).toEqual(['/l/0', '/l/2', '/l/3', '/l/4', '/l/5']);
+    // Los tres primeros (dos eliminados y uno inactivo) no se vuelven a abrir.
+    expect(calls.map(c => c.index)).not.toContain(0);
+    expect(calls.map(c => c.index)).not.toContain(1);
+    expect(calls.map(c => c.index)).not.toContain(2);
+    expect(second.stats.likes).toEqual({ removed: 3, skipped: 3, failed: 0 });
+    expect(progress.size('likes')).toBe(0);
+    expect(store.data.size).toBe(0);
+  });
+
+  it('en modo prueba no guarda progreso', async () => {
+    const store = memoryStore();
+    const { adapter } = fakeAdapter({ reposts: makeItems('r', 3) });
+    const { engine } = makeEngine(adapter, makeQuota(), { dryRun: true, progress: new ProgressStore(store, 'fake') });
+    engine.subscribe(s => {
+      if (s.stats.reposts.removed === 2) engine.stop();
+    });
+
+    await engine.run(['reposts']);
+
+    expect(store.data.size).toBe(0);
   });
 
   it('no se puede ejecutar dos veces', async () => {

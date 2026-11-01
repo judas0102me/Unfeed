@@ -1,10 +1,27 @@
 // Selectores candidatos de la web de TikTok. Cada lista se prueba en orden.
-// En la fase 1 este objeto se descargará de la configuración remota para
-// poder corregirlo sin publicar una nueva versión de la app.
+// La configuración remota puede reemplazarlos (mergeTikTokSelectors) para corregir
+// la app cuando TikTok cambia su web, sin publicar una versión nueva.
 
 import type { Category } from '../types';
 
-export const TIKTOK = {
+export type TikTokSelectors = {
+  loginUrl: string;
+  qrLoginUrl: string;
+  homeUrl: string;
+  userAgent: string;
+  loggedOut: string[];
+  profileLink: string[];
+  tabs: Record<Category, string[]>;
+  gridItem: string[];
+  actionButton: Record<Category, string[]>;
+  removeRepostLabel: RegExp;
+  closeViewer: string[];
+  captcha: string[];
+  toast: string[];
+  rateLimitText: RegExp;
+};
+
+export const TIKTOK: TikTokSelectors = {
   loginUrl: 'https://www.tiktok.com/login',
   // Google bloquea su OAuth dentro de WebViews: el QR o correo/teléfono son las vías válidas.
   qrLoginUrl: 'https://www.tiktok.com/login/qrcode',
@@ -20,7 +37,7 @@ export const TIKTOK = {
     reposts: ['[data-e2e="repost-tab"]', '[data-e2e="reposts-tab"]'],
     likes: ['[data-e2e="liked-tab"]'],
     favorites: ['[data-e2e="favorites-tab"]', '[data-e2e="collect-tab"]'],
-  } satisfies Record<Category, string[]>,
+  },
 
   gridItem: [
     '[data-e2e="user-repost-item"] a',
@@ -35,7 +52,7 @@ export const TIKTOK = {
     likes: ['[data-e2e="browse-like-icon"]', '[data-e2e="like-icon"]'],
     favorites: ['[data-e2e="browse-favorite-icon"]', '[data-e2e="browse-collect-icon"]', '[data-e2e="undefined-favorite-icon"]', '[data-e2e="favorite-icon"]'],
     reposts: ['[data-e2e="video-share-repost"]'],
-  } satisfies Record<Category, string[]>,
+  },
 
   // Respaldo para reposts si cambia el data-e2e: se busca por aria-label (depende del idioma).
   removeRepostLabel: /(eliminar la publicaci[oó]n compartida|remove repost|undo repost|quitar repost)/i,
@@ -46,4 +63,51 @@ export const TIKTOK = {
   captcha: ['#captcha-verify-container', '#captcha_container', '[class*="captcha_verify" i]', 'iframe[src*="captcha"]'],
   toast: ['[role="alert"]', '[class*="toast" i]'],
   rateLimitText: /(demasiado r[aá]pido|too fast|too many|demasiadas|try again later|int[eé]ntalo m[aá]s tarde)/i,
-} as const;
+};
+
+const CATEGORIES: Category[] = ['reposts', 'likes', 'favorites'];
+const LIST_KEYS = ['loggedOut', 'profileLink', 'gridItem', 'closeViewer', 'captcha', 'toast'] as const;
+const BY_CATEGORY_KEYS = ['tabs', 'actionButton'] as const;
+const REGEX_KEYS = ['removeRepostLabel', 'rateLimitText'] as const;
+
+const isList = (v: unknown): v is string[] =>
+  Array.isArray(v) && v.length > 0 && v.every(s => typeof s === 'string' && s.length > 0);
+
+function toRegExp(v: unknown): RegExp | null {
+  if (!v || typeof v !== 'object') return null;
+  const { source, flags } = v as { source?: unknown; flags?: unknown };
+  if (typeof source !== 'string' || (flags !== undefined && typeof flags !== 'string')) return null;
+  try {
+    return new RegExp(source, flags);
+  } catch {
+    return null;
+  }
+}
+
+// Aplica sobre `base` los valores remotos válidos e ignora el resto. Las URLs no se
+// pueden cambiar en remoto: si alguien comprometiera el servidor de configuración,
+// no podría llevar al usuario a otra página para robarle la sesión.
+export function mergeTikTokSelectors(base: TikTokSelectors, remote: unknown): TikTokSelectors {
+  if (!remote || typeof remote !== 'object') return base;
+  const r = remote as Record<string, unknown>;
+  const merged: TikTokSelectors = { ...base, tabs: { ...base.tabs }, actionButton: { ...base.actionButton } };
+
+  if (typeof r.userAgent === 'string' && r.userAgent.startsWith('Mozilla/')) merged.userAgent = r.userAgent;
+  for (const key of LIST_KEYS) {
+    const value = r[key];
+    if (isList(value)) merged[key] = value;
+  }
+  for (const key of BY_CATEGORY_KEYS) {
+    const value = r[key];
+    if (!value || typeof value !== 'object') continue;
+    for (const category of CATEGORIES) {
+      const list = (value as Record<string, unknown>)[category];
+      if (isList(list)) merged[key][category] = list;
+    }
+  }
+  for (const key of REGEX_KEYS) {
+    const re = toRegExp(r[key]);
+    if (re) merged[key] = re;
+  }
+  return merged;
+}

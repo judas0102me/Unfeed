@@ -6,6 +6,16 @@ import type { BlockReason, Category, PlatformAdapter, RemoveResult } from '../..
 // Cupo de eliminaciones del día (plan gratis). Lo implementa el contador diario.
 export type Quota = { remaining(): number; consume(): void };
 
+// Elementos ya tratados en ejecuciones anteriores, para continuar otro día sin volver a
+// abrirlos uno por uno. Lo implementa ProgressStore.
+export type Progress = {
+  has(category: Category, href: string): boolean;
+  add(category: Category, href: string): void;
+  clear(category: Category): void;
+};
+
+const NO_PROGRESS: Progress = { has: () => false, add: () => {}, clear: () => {} };
+
 type Range = { minMs: number; maxMs: number };
 
 export type EngineOptions = {
@@ -19,6 +29,7 @@ export type EngineOptions = {
   longPause?: Range & { everyMin: number; everyMax: number };
   // Fallos seguidos antes de detenerse.
   maxConsecutiveFailures?: number;
+  progress?: Progress;
   // Inyectables para las pruebas.
   sleep?: (ms: number) => Promise<void>;
   random?: () => number;
@@ -30,10 +41,12 @@ const DEFAULTS = {
   skipPace: { minMs: 500, maxMs: 1200 },
   longPause: { everyMin: 20, everyMax: 30, minMs: 30000, maxMs: 60000 },
   maxConsecutiveFailures: 3,
+  progress: NO_PROGRESS,
   sleep: (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)),
   random: Math.random,
 } satisfies Required<EngineOptions>;
 
+// skipped: ya estaban deshechos (por la caché de la red o por una ejecución anterior).
 export type CategoryStats = { removed: number; skipped: number; failed: number };
 
 export type StopReason =
@@ -135,7 +148,8 @@ export class CleaningEngine {
     this.update({ category });
     if (!(await this.checkpoint())) return { kind: 'stopped' };
 
-    let visible = await adapter.openCategory(category);
+    await adapter.openCategory(category);
+    let list = await adapter.listItems();
     let index = 0;
     let failures = 0;
     let notFoundStreak = 0;
@@ -144,9 +158,22 @@ export class CleaningEngine {
       if (!(await this.checkpoint())) return { kind: 'stopped' };
       if (!options.dryRun && this.quota.remaining() <= 0) return { kind: 'daily_limit' };
 
-      if (index >= visible) {
-        visible = await adapter.loadMore();
-        if (visible <= index) return null;
+      if (index >= list.length) {
+        await adapter.loadMore();
+        list = await adapter.listItems();
+        if (index >= list.length) {
+          // Categoría terminada: lo guardado ya no hace falta y, si el usuario vuelve a dar
+          // like a algo, la próxima limpieza debe verlo.
+          if (!options.dryRun) options.progress.clear(category);
+          return null;
+        }
+      }
+
+      // Tratado en una ejecución anterior: se salta sin abrir el visor.
+      if (options.progress.has(category, list[index])) {
+        this.count(category, 'skipped');
+        index++;
+        continue;
       }
 
       let result: RemoveResult;
@@ -164,7 +191,7 @@ export class CleaningEngine {
         case 'not_found':
           // La lista era más corta de lo que creíamos: se carga más y, si sigue sin haber, se termina.
           if (++notFoundStreak >= 2) return null;
-          visible = index;
+          list = list.slice(0, index);
           break;
 
         case 'failed': {
@@ -181,7 +208,8 @@ export class CleaningEngine {
         case 'inactive': {
           failures = 0;
           this.count(category, 'skipped');
-          ({ index, visible } = await this.advance(index, result.href));
+          if (!options.dryRun) options.progress.add(category, result.href);
+          ({ index, list } = await this.advance(index, result.href));
           await this.rest(options.skipPace);
           break;
         }
@@ -189,8 +217,11 @@ export class CleaningEngine {
         case 'removed': {
           failures = 0;
           this.count(category, 'removed');
-          if (!options.dryRun) this.quota.consume();
-          ({ index, visible } = await this.advance(index, result.href));
+          if (!options.dryRun) {
+            this.quota.consume();
+            options.progress.add(category, result.href);
+          }
+          ({ index, list } = await this.advance(index, result.href));
           await this.afterRemoval();
           break;
         }
@@ -200,10 +231,10 @@ export class CleaningEngine {
 
   // Sigue con el elemento posterior a `href` en la lista actual. Si la red lo quitó
   // de la lista, el siguiente ocupa su posición y el índice no avanza.
-  private async advance(index: number, href: string): Promise<{ index: number; visible: number }> {
+  private async advance(index: number, href: string): Promise<{ index: number; list: string[] }> {
     const list = await this.adapter.listItems();
     const at = list.indexOf(href);
-    return { index: at === -1 ? index : at + 1, visible: list.length };
+    return { index: at === -1 ? index : at + 1, list };
   }
 
   private async afterRemoval() {

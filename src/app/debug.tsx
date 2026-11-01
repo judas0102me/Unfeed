@@ -108,7 +108,7 @@ function DebugScreen() {
         ref={view => runner.attach(view)}
         style={styles.web}
         source={{ uri: url }}
-        userAgent={TIKTOK.userAgent}
+        userAgent={adapter.userAgent}
         sharedCookiesEnabled
         thirdPartyCookiesEnabled
         setSupportMultipleWindows={false}

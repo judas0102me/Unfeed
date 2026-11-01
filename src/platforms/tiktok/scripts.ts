@@ -1,15 +1,15 @@
 // Cuerpos de los scripts que se inyectan en la web de TikTok. ScriptRunner los envuelve
 // y cada uno responde con U.done(valor) o U.fail(error).
 import type { Category } from '../types';
-import { TIKTOK } from './selectors';
+import type { TikTokSelectors } from './selectors';
 
 const json = (v: unknown) => JSON.stringify(v);
 const regex = (re: RegExp) => `new RegExp(${json(re.source)}, ${json(re.flags)})`;
 
 // Elementos visibles de la pestaña: el primer selector con resultados, sin enlaces repetidos.
-const ITEMS = `
+const items = (sel: TikTokSelectors) => `
 const items = () => {
-  for (const s of ${json(TIKTOK.gridItem)}) {
+  for (const s of ${json(sel.gridItem)}) {
     const found = Array.from(document.querySelectorAll(s));
     if (!found.length) continue;
     const seen = new Set();
@@ -26,21 +26,21 @@ const items = () => {
 
 // Captcha, aviso de demasiadas acciones o sesión cerrada. Los avisos se buscan solo en
 // los toasts: en el texto de la página aparecen las descripciones de los videos.
-const CHECK_BLOCK = `
+const checkBlock = (sel: TikTokSelectors) => `
 const checkBlock = () => {
-  if (U.find(${json(TIKTOK.captcha)})) return 'captcha';
-  const rate = ${regex(TIKTOK.rateLimitText)};
-  const toasts = ${json(TIKTOK.toast)}.flatMap(s => Array.from(document.querySelectorAll(s)));
+  if (U.find(${json(sel.captcha)})) return 'captcha';
+  const rate = ${regex(sel.rateLimitText)};
+  const toasts = ${json(sel.toast)}.flatMap(s => Array.from(document.querySelectorAll(s)));
   if (toasts.some(t => rate.test(t.textContent || ''))) return 'rate_limit';
-  if (U.find(${json(TIKTOK.loggedOut)})) return 'logged_out';
+  if (U.find(${json(sel.loggedOut)})) return 'logged_out';
   return null;
 };
 `;
 
-export function detectSession(): string {
+export function detectSession(sel: TikTokSelectors): string {
   return `
-    const loggedOut = U.find(${json(TIKTOK.loggedOut)});
-    const profile = U.find(${json(TIKTOK.profileLink)});
+    const loggedOut = U.find(${json(sel.loggedOut)});
+    const profile = U.find(${json(sel.profileLink)});
     // Sin sesión, el enlace de perfil existe pero apunta a "/@" sin usuario.
     const raw = profile && profile.getAttribute('href');
     const href = raw && /^\\/@[^/?#]+/.test(raw) ? raw : null;
@@ -48,20 +48,20 @@ export function detectSession(): string {
   `;
 }
 
-export function detectBlock(): string {
-  return `${CHECK_BLOCK}
+export function detectBlock(sel: TikTokSelectors): string {
+  return `${checkBlock(sel)}
     U.done(checkBlock());
   `;
 }
 
 // Abre la pestaña de la categoría. Si no está en el perfil, entra con un clic (SPA):
 // cargar la URL del perfil directamente deja la página en blanco.
-export function openCategory(category: Category): string {
-  return `${ITEMS}
-    const tabSelectors = ${json(TIKTOK.tabs[category])};
+export function openCategory(sel: TikTokSelectors, category: Category): string {
+  return `${items(sel)}
+    const tabSelectors = ${json(sel.tabs[category])};
     let tab = U.find(tabSelectors);
     if (!tab) {
-      const link = await U.waitFor(${json(TIKTOK.profileLink)}, 10000);
+      const link = await U.waitFor(${json(sel.profileLink)}, 10000);
       if (!link) return U.fail('Enlace de perfil no encontrado');
       link.click();
       tab = await U.waitFor(tabSelectors, 10000);
@@ -76,14 +76,14 @@ export function openCategory(category: Category): string {
   `;
 }
 
-export function listItems(): string {
-  return `${ITEMS}
+export function listItems(sel: TikTokSelectors): string {
+  return `${items(sel)}
     U.done(items().map(a => a.getAttribute('href')));
   `;
 }
 
-export function loadMore(): string {
-  return `${ITEMS}
+export function loadMore(sel: TikTokSelectors): string {
+  return `${items(sel)}
     const before = items();
     if (before.length) before[before.length - 1].scrollIntoView({ block: 'end' });
     window.scrollTo(0, document.body.scrollHeight);
@@ -94,8 +94,8 @@ export function loadMore(): string {
 
 // Abre el elemento `index` de la pestaña actual y deshace la acción.
 // Con dryRun localiza el botón activo pero no hace el clic final.
-export function removeItem(category: Category, index: number, dryRun: boolean): string {
-  return `${ITEMS}${CHECK_BLOCK}
+export function removeItem(sel: TikTokSelectors, category: Category, index: number, dryRun: boolean): string {
+  return `${items(sel)}${checkBlock(sel)}
     const blockedBefore = checkBlock();
     if (blockedBefore) return U.done({ outcome: 'blocked', reason: blockedBefore });
 
@@ -104,12 +104,12 @@ export function removeItem(category: Category, index: number, dryRun: boolean): 
     const href = item.getAttribute('href');
     item.click();
 
-    const re = ${regex(TIKTOK.removeRepostLabel)};
+    const re = ${regex(sel.removeRepostLabel)};
     const byLabel = () => ${json(category)} === 'reposts'
       ? Array.from(document.querySelectorAll('[aria-label]')).find(el => re.test(el.getAttribute('aria-label') || ''))
       : null;
     const close = async () => {
-      const c = U.find(${json(TIKTOK.closeViewer)});
+      const c = U.find(${json(sel.closeViewer)});
       if (c) c.click();
       await U.sleep(800);
     };
@@ -119,7 +119,7 @@ export function removeItem(category: Category, index: number, dryRun: boolean): 
       U.done(reason ? { outcome: 'blocked', reason } : { outcome: 'failed', detail });
     };
 
-    const found = await U.waitUntil(() => U.find(${json(TIKTOK.actionButton[category])}) || byLabel(), 8000);
+    const found = await U.waitUntil(() => U.find(${json(sel.actionButton[category])}) || byLabel(), 8000);
     if (!found) return failure('Botón de acción no encontrado en el visor');
     const button = found.closest('button, a') || found;
 

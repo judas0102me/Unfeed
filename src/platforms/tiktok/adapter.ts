@@ -1,23 +1,30 @@
+import { cachedPlatformConfig } from '../../core/config/remoteConfig';
 import type { ScriptRunner } from '../../core/runner';
+import { storage } from '../../core/storage';
 import type { BlockReason, Category, PlatformAdapter, RemoveResult, Session } from '../types';
 import * as scripts from './scripts';
-import { TIKTOK } from './selectors';
+import { mergeTikTokSelectors, TIKTOK, TikTokSelectors } from './selectors';
 
-export function createTikTokAdapter(runner: ScriptRunner): PlatformAdapter {
+// Selectores de la app con las correcciones de la configuración remota guardada.
+export function currentTikTokSelectors(): TikTokSelectors {
+  return mergeTikTokSelectors(TIKTOK, cachedPlatformConfig(storage, 'tiktok'));
+}
+
+export function createTikTokAdapter(runner: ScriptRunner, sel: TikTokSelectors = currentTikTokSelectors()): PlatformAdapter {
   return {
     id: 'tiktok',
-    homeUrl: TIKTOK.homeUrl,
-    loginUrl: TIKTOK.loginUrl,
-    userAgent: TIKTOK.userAgent,
+    homeUrl: sel.homeUrl,
+    loginUrl: sel.loginUrl,
+    userAgent: sel.userAgent,
     categories: ['reposts', 'likes', 'favorites'] satisfies Category[],
 
-    detectSession: () => runner.run<Session>(scripts.detectSession()),
-    detectBlock: () => runner.run<BlockReason | null>(scripts.detectBlock()),
-    openCategory: category => runner.run<number>(scripts.openCategory(category), 30000),
-    listItems: () => runner.run<string[]>(scripts.listItems()),
-    loadMore: () => runner.run<number>(scripts.loadMore()),
+    detectSession: () => runner.run<Session>(scripts.detectSession(sel)),
+    detectBlock: () => runner.run<BlockReason | null>(scripts.detectBlock(sel)),
+    openCategory: category => runner.run<number>(scripts.openCategory(sel, category), 30000),
+    listItems: () => runner.run<string[]>(scripts.listItems(sel)),
+    loadMore: () => runner.run<number>(scripts.loadMore(sel)),
     // El script espera hasta 8 s el visor y 4 s el cambio de estado, más los cierres.
     removeItem: (category, index, options) =>
-      runner.run<RemoveResult>(scripts.removeItem(category, index, options?.dryRun ?? false), 25000),
+      runner.run<RemoveResult>(scripts.removeItem(sel, category, index, options?.dryRun ?? false), 25000),
   };
 }
