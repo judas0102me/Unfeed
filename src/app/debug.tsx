@@ -1,14 +1,14 @@
-// Fase 0 (prueba técnica): pantalla de depuración para validar que se puede
-// iniciar sesión en TikTok dentro del WebView y deshacer reposts, likes y favoritos.
+// Panel de la fase 0: prueba manual de los scripts de TikTok. Solo disponible en desarrollo.
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { Redirect } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 
-import { BEFORE_LOAD, parseBridgeMessage } from './src/core/bridge';
-import * as tiktok from './src/platforms/tiktok/scripts';
-import { Category, TIKTOK } from './src/platforms/tiktok/selectors';
+import { BEFORE_LOAD, parseBridgeMessage } from '@/core/bridge';
+import * as tiktok from '@/platforms/tiktok/scripts';
+import { Category, TIKTOK } from '@/platforms/tiktok/selectors';
 
 const CATEGORIES: { key: Category; label: string }[] = [
   { key: 'reposts', label: 'Reposts' },
@@ -16,12 +16,9 @@ const CATEGORIES: { key: Category; label: string }[] = [
   { key: 'favorites', label: 'Favoritos' },
 ];
 
-export default function App() {
-  return (
-    <SafeAreaProvider>
-      <DebugScreen />
-    </SafeAreaProvider>
-  );
+export default function DebugRoute() {
+  if (!__DEV__) return <Redirect href="/" />;
+  return <DebugScreen />;
 }
 
 function DebugScreen() {

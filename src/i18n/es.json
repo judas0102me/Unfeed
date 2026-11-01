@@ -1,0 +1,15 @@
+{
+  "common": {
+    "continue": "Continuar",
+    "cancel": "Cancelar"
+  },
+  "home": {
+    "title": "Limpia tus redes",
+    "subtitle": "Elimina reposts, likes y favoritos de tu cuenta en pocos toques.",
+    "start": "Empezar",
+    "debug": "Panel de depuración"
+  },
+  "debug": {
+    "title": "Depuración"
+  }
+}

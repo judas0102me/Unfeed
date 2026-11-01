@@ -1,0 +1,15 @@
+{
+  "common": {
+    "continue": "Continue",
+    "cancel": "Cancel"
+  },
+  "home": {
+    "title": "Clean up your feeds",
+    "subtitle": "Remove reposts, likes and favorites from your account in a few taps.",
+    "start": "Get started",
+    "debug": "Debug panel"
+  },
+  "debug": {
+    "title": "Debug"
+  }
+}
