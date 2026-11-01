@@ -143,6 +143,14 @@ export function removeItem(sel: TikTokSelectors, category: Category, index: numb
   `;
 }
 
+// Cierra la sesión con el mismo endpoint que usa el botón de la web. Sin verificar todavía.
+export function logout(): string {
+  return `
+    await fetch('/passport/web/logout/', { credentials: 'include' });
+    U.done(null);
+  `;
+}
+
 // Solo para el panel de depuración: atributos data-e2e y etiquetas de botones de la página.
 export function inspectPage(): string {
   return `

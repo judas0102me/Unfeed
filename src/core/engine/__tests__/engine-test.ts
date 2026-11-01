@@ -35,6 +35,7 @@ function fakeAdapter(lists: Partial<Record<Category, Item[]>>, opts: FakeOptions
     categories: ['reposts', 'likes', 'favorites'],
     detectSession: async () => ({ loggedIn: true, profileUrl: '/@test' }),
     detectBlock: async () => opts.detectBlock ?? null,
+    logout: async () => {},
     openCategory: async category => {
       if (opts.openCategoryError) throw new Error(opts.openCategoryError);
       current = category;

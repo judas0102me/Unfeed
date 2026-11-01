@@ -35,4 +35,6 @@ export interface PlatformAdapter {
   loadMore(): Promise<number>;
   removeItem(category: Category, index: number, options?: { dryRun?: boolean }): Promise<RemoveResult>;
   detectBlock(): Promise<BlockReason | null>;
+  // Cierra la sesión en la red dentro del WebView.
+  logout(): Promise<void>;
 }

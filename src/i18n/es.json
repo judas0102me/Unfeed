@@ -1,15 +1,85 @@
 {
   "common": {
     "continue": "Continuar",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "back": "Volver"
   },
-  "home": {
-    "title": "Limpia tus redes",
-    "subtitle": "Elimina reposts, likes y favoritos de tu cuenta en pocos toques.",
-    "start": "Empezar",
+  "categories": {
+    "reposts": "Compartidos",
+    "likes": "Me gusta",
+    "favorites": "Favoritos"
+  },
+  "onboarding": {
+    "title": "Así funciona Unfeed",
+    "login": "Inicias sesión en TikTok dentro de la app. Unfeed nunca ve ni guarda tu contraseña.",
+    "how": "Unfeed abre cada video y quita el me gusta, el favorito o el compartido por ti, igual que lo harías tú, a ritmo humano.",
+    "device": "Todo ocurre en tu teléfono. Mantén la app abierta mientras limpia; la pantalla no se apagará.",
+    "riskTitle": "Antes de empezar",
+    "risk": "TikTok no ofrece una función oficial para esto. Si detecta mucha actividad puede pedirte una verificación o limitar acciones por un tiempo. Unfeed va despacio y se detiene si eso pasa.",
+    "googleTitle": "¿Entras con Google o Apple?",
+    "google": "Google y Apple no permiten iniciar sesión dentro de otras apps. Añade un correo o teléfono a tu cuenta de TikTok, o usa el código QR desde otro dispositivo.",
+    "accept": "Entendido"
+  },
+  "login": {
+    "title": "Inicia sesión en TikTok",
+    "hint": "Usa tu correo, teléfono o usuario. Google y Apple no funcionan aquí.",
+    "qr": "Usar código QR",
+    "form": "Usar correo o teléfono",
+    "loggingOut": "Cerrando sesión…"
+  },
+  "clean": {
+    "account": "Cuenta: @{{handle}}",
+    "settings": "Ajustes",
+    "quota": "Hoy te quedan {{remaining}} de {{limit}} eliminaciones",
+    "quotaEmpty": "Ya usaste las {{limit}} eliminaciones de hoy. Vuelve mañana.",
+    "choose": "¿Qué quieres limpiar?",
+    "start": "Empezar limpieza",
+    "dryRun": "Modo prueba: no se eliminará nada",
+    "lastRun": "Última limpieza: {{count}} eliminados"
+  },
+  "progress": {
+    "preparing": "Preparando…",
+    "running": "Limpiando {{category}}…",
+    "paused": "En pausa",
+    "resting": "Pausa breve para no alertar a TikTok",
+    "removed": "eliminados",
+    "row": "{{removed}} eliminados · {{skipped}} ya estaban",
+    "quota": "Te quedan {{remaining}} hoy",
+    "keepOpen": "Mantén la app abierta. La pantalla no se apagará.",
+    "pause": "Pausar",
+    "resume": "Reanudar",
+    "stop": "Detener",
+    "notLoggedIn": "Tu sesión de TikTok no está iniciada."
+  },
+  "summary": {
+    "completed": "¡Listo! Ya no queda nada por limpiar.",
+    "stopped": "Detuviste la limpieza. Puedes continuar cuando quieras.",
+    "daily_limit": "Llegaste al límite de hoy. Continúa mañana donde lo dejaste.",
+    "captcha": "TikTok pidió una verificación. Espera un rato y vuelve a intentarlo.",
+    "rate_limit": "TikTok está limitando acciones. Espera unas horas antes de continuar.",
+    "logged_out": "Tu sesión de TikTok se cerró. Vuelve a iniciar sesión.",
+    "too_many_failures": "Algo falló varias veces seguidas. Inténtalo más tarde.",
+    "error": "Ocurrió un error: {{message}}",
+    "total": "eliminados en total",
+    "dryRun": "Modo prueba: no se eliminó nada de verdad.",
+    "home": "Volver al inicio",
+    "login": "Iniciar sesión"
+  },
+  "settings": {
+    "title": "Ajustes",
+    "speed": "Velocidad",
+    "speedNormal": "Normal",
+    "speedCareful": "Cuidadosa",
+    "speedHint": "La velocidad cuidadosa es más lenta y reduce el riesgo de que TikTok limite tu cuenta.",
+    "language": "Idioma",
+    "languageHint": "Unfeed usa el idioma de tu teléfono.",
+    "languageOpen": "Cambiar en Ajustes del teléfono",
+    "account": "Cuenta",
+    "logout": "Cerrar sesión",
+    "privacy": "Privacidad",
+    "privacyText": "Unfeed no tiene servidores que reciban tus datos. Tu sesión de TikTok y tu progreso se guardan solo en este teléfono, y nunca vemos tu contraseña.",
+    "dev": "Desarrollo",
+    "dryRun": "Modo prueba (sin clic final)",
     "debug": "Panel de depuración"
-  },
-  "debug": {
-    "title": "Depuración"
   }
 }

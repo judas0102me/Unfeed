@@ -19,6 +19,7 @@ export function createTikTokAdapter(runner: ScriptRunner, sel: TikTokSelectors =
     categories: ['reposts', 'likes', 'favorites'] satisfies Category[],
 
     detectSession: () => runner.run<Session>(scripts.detectSession(sel)),
+    logout: () => runner.run<void>(scripts.logout()),
     detectBlock: () => runner.run<BlockReason | null>(scripts.detectBlock(sel)),
     openCategory: category => runner.run<number>(scripts.openCategory(sel, category), 30000),
     listItems: () => runner.run<string[]>(scripts.listItems(sel)),
