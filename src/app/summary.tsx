@@ -14,8 +14,9 @@ import { useColors } from '@/theme/colors';
 
 const CATEGORIES: Category[] = ['reposts', 'likes', 'favorites'];
 
-function messageKey(reason: StopReason | null): string {
+function messageKey(reason: StopReason | null, failed: number): string {
   if (!reason) return 'summary.stopped';
+  if (reason.kind === 'completed' && failed > 0) return 'summary.completedWithFailures';
   if (reason.kind === 'blocked') return `summary.${reason.reason}`;
   return `summary.${reason.kind}`;
 }
@@ -26,6 +27,7 @@ export default function Summary() {
   const [run] = useState(appStore.lastRun);
   const [remaining] = useState(() => new DailyQuota(storage).remaining());
   const reason = run?.stopReason ?? null;
+  const failed = run ? CATEGORIES.reduce((sum, c) => sum + run.stats[c].failed, 0) : 0;
   const needsLogin = reason?.kind === 'blocked' && reason.reason === 'logged_out';
 
   const footer = needsLogin ? (
@@ -36,7 +38,8 @@ export default function Summary() {
 
   return (
     <Screen scroll footer={footer}>
-      <Heading>{t(messageKey(reason), { message: reason?.kind === 'error' ? reason.message : '' })}</Heading>
+      <Heading>{t(messageKey(reason, failed), { message: reason?.kind === 'error' ? reason.message : '', count: failed })}</Heading>
+      {failed > 0 && <Body muted>{t('summary.failedHint')}</Body>}
       <View style={styles.total}>
         <Text style={[styles.totalNumber, { color: colors.accent }]}>{run?.totalRemoved ?? 0}</Text>
         <Body muted>{t('summary.total')}</Body>
@@ -46,7 +49,7 @@ export default function Summary() {
           {CATEGORIES.filter(c => run.stats[c].removed + run.stats[c].skipped + run.stats[c].failed > 0).map(category => (
             <View key={category} style={styles.row}>
               <Body>{t(`categories.${category}`)}</Body>
-              <Body muted>{t('progress.row', run.stats[category])}</Body>
+              <Body muted>{t(run.stats[category].failed ? 'summary.rowFailed' : 'progress.row', run.stats[category])}</Body>
             </View>
           ))}
           <Body muted>{t('clean.quota', { remaining, limit: FREE_DAILY_LIMIT })}</Body>

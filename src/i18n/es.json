@@ -53,6 +53,8 @@
   },
   "summary": {
     "completed": "¡Listo! Ya no queda nada por limpiar.",
+    "completedWithFailures": "Terminó, pero {{count}} no se pudieron quitar.",
+    "failedHint": "TikTok a veces no guarda el cambio. Inténtalo de nuevo más tarde.",
     "stopped": "Detuviste la limpieza. Puedes continuar cuando quieras.",
     "daily_limit": "Llegaste al límite de hoy. Continúa mañana donde lo dejaste.",
     "captcha": "TikTok pidió una verificación. Espera un rato y vuelve a intentarlo.",
@@ -61,6 +63,7 @@
     "too_many_failures": "Algo falló varias veces seguidas. Inténtalo más tarde.",
     "error": "Ocurrió un error: {{message}}",
     "total": "eliminados en total",
+    "rowFailed": "{{removed}} eliminados · {{failed}} con error",
     "dryRun": "Modo prueba: no se eliminó nada de verdad.",
     "home": "Volver al inicio",
     "login": "Iniciar sesión"

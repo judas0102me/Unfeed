@@ -61,6 +61,12 @@ Los scripts se ejecutan con `ScriptRunner` (`src/core/runner.ts`): cada script l
 - Mantiene la pantalla encendida (`expo-keep-awake`); iOS no permite seguir en segundo plano.
 - Desplaza la pestaña para cargar más elementos cuando se acaban los visibles.
 
+### Favoritos: TikTok no siempre guarda el cambio
+
+En la prueba real (1 nov 2026) la web de TikTok quita el favorito con `POST /api/item/collect/?action=2` (poner es `action=1`; `action=0` da error 10201). TikTok responde `status_code: 0`, pero el video sigue en la lista de Favoritos y en el JSON de su página (`itemStruct.collected: true`), también cuando se pulsa el botón de la propia web. Con los Me gusta, ese mismo JSON sí cambia al instante.
+
+Por eso, tras quitar un favorito, el adaptador lee `__UNIVERSAL_DATA_FOR_REHYDRATION__` de la página del video. Si sigue en `collected: true`, cuenta un fallo en vez de una eliminación y no gasta cupo. Falta confirmar en la app móvil de TikTok si los favoritos quitados se mantienen.
+
 ## Pantallas
 
 1. **Onboarding**: cómo funciona, aviso de riesgo (límites o bloqueos de TikTok), "no guardamos tu contraseña", y qué hacer si entras a TikTok con Google.

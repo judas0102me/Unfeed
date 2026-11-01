@@ -92,10 +92,25 @@ export function loadMore(sel: TikTokSelectors): string {
   `;
 }
 
+// Estado guardado en el servidor según el JSON que TikTok incluye en la página del video.
+// Si no se puede leer, devuelve {} y no se bloquea la eliminación.
+const serverState = `
+const serverState = async href => {
+  try {
+    const html = await (await fetch(href, { credentials: 'include', cache: 'no-store' })).text();
+    const m = html.match(/<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__"[^>]*>([\\s\\S]*?)<\\/script>/);
+    const item = m && JSON.parse(m[1]).__DEFAULT_SCOPE__['webapp.video-detail'].itemInfo.itemStruct;
+    return item ? { collected: item.collected } : {};
+  } catch (e) {
+    return {};
+  }
+};
+`;
+
 // Abre el elemento `index` de la pestaña actual y deshace la acción.
 // Con dryRun localiza el botón activo pero no hace el clic final.
 export function removeItem(sel: TikTokSelectors, category: Category, index: number, dryRun: boolean): string {
-  return `${items(sel)}${checkBlock(sel)}
+  return `${items(sel)}${checkBlock(sel)}${serverState}
     const blockedBefore = checkBlock();
     if (blockedBefore) return U.done({ outcome: 'blocked', reason: blockedBefore });
 
@@ -138,6 +153,12 @@ export function removeItem(sel: TikTokSelectors, category: Category, index: numb
 
     const undone = await U.waitUntil(() => !isActive(), 4000);
     if (!undone) return failure('Se pulsó pero el estado no cambió');
+    // En favoritos TikTok responde bien pero a veces no guarda el cambio, y el visor
+    // repite el estado viejo de la lista. Se confirma con los datos de la página del video.
+    if (${json(category)} === 'favorites') {
+      await U.sleep(1500);
+      if ((await serverState(href)).collected === true) return failure('TikTok no guardó el cambio');
+    }
     await close();
     U.done({ outcome: 'removed', href, simulated: false });
   `;
