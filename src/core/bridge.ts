@@ -2,9 +2,8 @@
 
 export type BridgeMessage =
   | { type: 'log'; text: string }
-  | { type: 'session'; loggedIn: boolean; profileUrl: string | null }
-  | { type: 'inspect'; url: string; title: string; textLength: number; snippet: string; e2e: Record<string, number>; labels: string[] }
-  | { type: 'result'; action: string; ok: boolean; detail: string };
+  | { type: 'result'; id: string; ok: true; value: unknown }
+  | { type: 'result'; id: string; ok: false; error: string };
 
 export function parseBridgeMessage(raw: string): BridgeMessage | null {
   try {
@@ -16,10 +15,14 @@ export function parseBridgeMessage(raw: string): BridgeMessage | null {
 }
 
 // Utilidades disponibles dentro de cada script inyectado como `U`.
-export const PRELUDE = `
+// U.done(valor) y U.fail(error) responden a la app; cada script debe llamar a uno de los dos.
+function prelude(id: string): string {
+  return `
 const U = {
   post(msg) { window.ReactNativeWebView.postMessage(JSON.stringify(msg)); },
   log(text) { U.post({ type: 'log', text: String(text) }); },
+  done(value) { U.post({ type: 'result', id: ${JSON.stringify(id)}, ok: true, value: value === undefined ? null : value }); },
+  fail(error) { U.post({ type: 'result', id: ${JSON.stringify(id)}, ok: false, error: String(error) }); },
   find(selectors, root) {
     for (const s of selectors) {
       const el = (root || document).querySelector(s);
@@ -46,15 +49,16 @@ const U = {
   },
 };
 `;
+}
 
 // Envuelve un cuerpo async para inyectarlo: captura errores y termina en `true;` como exige react-native-webview.
-export function wrapScript(action: string, body: string): string {
+export function wrapScript(id: string, body: string): string {
   return `(async () => {
-${PRELUDE}
+${prelude(id)}
 try {
 ${body}
 } catch (e) {
-  U.post({ type: 'result', action: ${JSON.stringify(action)}, ok: false, detail: 'Error: ' + (e && e.message) });
+  U.fail('Error: ' + (e && e.message));
 }
 })();
 true;`;

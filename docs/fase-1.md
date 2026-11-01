@@ -46,8 +46,11 @@ Cada red social implementa lo mismo, para que en la v2 Instagram y Facebook sean
 
 - `loginUrl`, `detectSession()`
 - `categories`: reposts, likes, favoritos
-- `openCategory(cat)`, `listItems()`, `removeItem(cat, index)` → `removed | inactive | not_found | blocked`
+- `openCategory(cat)` (entra al perfil si hace falta), `listItems()`, `loadMore()`
+- `removeItem(cat, index)` → `removed | inactive | not_found | blocked | failed`
 - `detectBlock()`: captcha, límite de TikTok o sesión expirada
+
+Los scripts se ejecutan con `ScriptRunner` (`src/core/runner.ts`): cada script lleva un id y su respuesta resuelve una promesa, así el adaptador expone métodos `async` normales.
 
 ### Motor de limpieza
 

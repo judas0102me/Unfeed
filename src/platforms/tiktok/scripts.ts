@@ -1,104 +1,126 @@
-import { wrapScript } from '../../core/bridge';
-import { Category, TIKTOK } from './selectors';
+// Cuerpos de los scripts que se inyectan en la web de TikTok. ScriptRunner los envuelve
+// y cada uno responde con U.done(valor) o U.fail(error).
+import type { Category } from '../types';
+import { TIKTOK } from './selectors';
 
 const json = (v: unknown) => JSON.stringify(v);
+const regex = (re: RegExp) => `new RegExp(${json(re.source)}, ${json(re.flags)})`;
+
+// Elementos visibles de la pestaña: el primer selector con resultados, sin enlaces repetidos.
+const ITEMS = `
+const items = () => {
+  for (const s of ${json(TIKTOK.gridItem)}) {
+    const found = Array.from(document.querySelectorAll(s));
+    if (!found.length) continue;
+    const seen = new Set();
+    return found.filter(a => {
+      const href = a.getAttribute('href');
+      if (!href || seen.has(href)) return false;
+      seen.add(href);
+      return true;
+    });
+  }
+  return [];
+};
+`;
+
+// Captcha, aviso de demasiadas acciones o sesión cerrada. Los avisos se buscan solo en
+// los toasts: en el texto de la página aparecen las descripciones de los videos.
+const CHECK_BLOCK = `
+const checkBlock = () => {
+  if (U.find(${json(TIKTOK.captcha)})) return 'captcha';
+  const rate = ${regex(TIKTOK.rateLimitText)};
+  const toasts = ${json(TIKTOK.toast)}.flatMap(s => Array.from(document.querySelectorAll(s)));
+  if (toasts.some(t => rate.test(t.textContent || ''))) return 'rate_limit';
+  if (U.find(${json(TIKTOK.loggedOut)})) return 'logged_out';
+  return null;
+};
+`;
 
 export function detectSession(): string {
-  return wrapScript('session', `
+  return `
     const loggedOut = U.find(${json(TIKTOK.loggedOut)});
     const profile = U.find(${json(TIKTOK.profileLink)});
     // Sin sesión, el enlace de perfil existe pero apunta a "/@" sin usuario.
     const raw = profile && profile.getAttribute('href');
     const href = raw && /^\\/@[^/?#]+/.test(raw) ? raw : null;
-    U.post({
-      type: 'session',
-      loggedIn: !loggedOut && !!href,
-      profileUrl: href ? new URL(href, location.origin).href : null,
-    });
-  `);
+    U.done({ loggedIn: !loggedOut && !!href, profileUrl: href ? new URL(href, location.origin).href : null });
+  `;
 }
 
-// Lista todos los atributos data-e2e de la página: sirve para descubrir los selectores reales.
-export function inspectPage(): string {
-  return wrapScript('inspect', `
-    const e2e = {};
-    document.querySelectorAll('[data-e2e]').forEach(el => {
-      const k = el.getAttribute('data-e2e');
-      e2e[k] = (e2e[k] || 0) + 1;
-    });
-    // Etiquetas de botones (aria-label o texto corto): sirven para localizar acciones sin data-e2e.
-    const labels = [];
-    document.querySelectorAll('button, [role="button"], [aria-label]').forEach(el => {
-      const label = (el.getAttribute('aria-label') || el.textContent || '').trim();
-      if (label && label.length < 40 && !labels.includes(label)) labels.push(label);
-    });
-    // Estado de los botones del visor: para saber si un like/favorito está activo antes de pulsarlo.
-    ['browse-like-icon', 'browse-favorite-icon', 'video-share-repost'].forEach(k => {
-      const el = document.querySelector('[data-e2e="' + k + '"]');
-      if (!el) return;
-      const btn = el.closest('button') || el;
-      U.log(k + ' → ' + btn.outerHTML.replace(/<path[^>]*>/g, '').slice(0, 500));
-    });
-    const body = document.body;
-    U.post({
-      type: 'inspect',
-      url: location.href,
-      title: document.title,
-      textLength: body ? body.innerText.length : 0,
-      snippet: body ? body.innerHTML.slice(0, 400) : '',
-      e2e,
-      labels: labels.slice(0, 80),
-    });
-  `);
+export function detectBlock(): string {
+  return `${CHECK_BLOCK}
+    U.done(checkBlock());
+  `;
 }
 
-// Navega al perfil con un clic dentro de la web (SPA), en lugar de recargar la página.
-export function goToProfile(): string {
-  return wrapScript('goToProfile', `
-    const link = await U.waitFor(${json(TIKTOK.profileLink)}, 10000);
-    if (!link) {
-      U.post({ type: 'result', action: 'goToProfile', ok: false, detail: 'Enlace de perfil no encontrado' });
-      return;
-    }
-    link.click();
-    await U.sleep(3000);
-    U.post({ type: 'result', action: 'goToProfile', ok: true, detail: location.href });
-  `);
-}
-
-export function openTab(category: Category): string {
-  const action = 'openTab:' + category;
-  return wrapScript(action, `
-    const tab = await U.waitFor(${json(TIKTOK.tabs[category])}, 6000);
+// Abre la pestaña de la categoría. Si no está en el perfil, entra con un clic (SPA):
+// cargar la URL del perfil directamente deja la página en blanco.
+export function openCategory(category: Category): string {
+  return `${ITEMS}
+    const tabSelectors = ${json(TIKTOK.tabs[category])};
+    let tab = U.find(tabSelectors);
     if (!tab) {
-      U.post({ type: 'result', action: ${json(action)}, ok: false, detail: 'Pestaña no encontrada. ¿Estás en tu perfil?' });
-      return;
+      const link = await U.waitFor(${json(TIKTOK.profileLink)}, 10000);
+      if (!link) return U.fail('Enlace de perfil no encontrado');
+      link.click();
+      tab = await U.waitFor(tabSelectors, 10000);
     }
+    if (!tab) return U.fail('Pestaña no encontrada en el perfil');
     tab.click();
+    // La rejilla anterior sigue visible un momento tras cambiar de pestaña,
+    // y la de favoritos tarda varios segundos más que las otras en cargar.
     await U.sleep(2500);
-    const count = document.querySelectorAll('a[href*="/video/"]').length;
-    U.post({ type: 'result', action: ${json(action)}, ok: true, detail: 'Pestaña abierta, ' + count + ' videos visibles' });
-  `);
+    await U.waitUntil(() => items().length, 8000);
+    U.done(items().length);
+  `;
 }
 
-// Abre el primer elemento de la pestaña actual y deshace la acción.
-// Con dryRun solo localiza los elementos y no hace el clic final.
-export function removeOne(category: Category, dryRun: boolean): string {
-  const action = 'remove:' + category;
-  return wrapScript(action, `
-    const done = (ok, detail) => U.post({ type: 'result', action: ${json(action)}, ok, detail });
+export function listItems(): string {
+  return `${ITEMS}
+    U.done(items().map(a => a.getAttribute('href')));
+  `;
+}
 
-    const item = U.find(${json(TIKTOK.gridItem)});
-    if (!item) return done(false, 'No hay videos en la pestaña');
-    U.log('Abriendo ' + item.getAttribute('href'));
+export function loadMore(): string {
+  return `${ITEMS}
+    const before = items();
+    if (before.length) before[before.length - 1].scrollIntoView({ block: 'end' });
+    window.scrollTo(0, document.body.scrollHeight);
+    await U.waitUntil(() => items().length > before.length, 5000);
+    U.done(items().length);
+  `;
+}
+
+// Abre el elemento `index` de la pestaña actual y deshace la acción.
+// Con dryRun localiza el botón activo pero no hace el clic final.
+export function removeItem(category: Category, index: number, dryRun: boolean): string {
+  return `${ITEMS}${CHECK_BLOCK}
+    const blockedBefore = checkBlock();
+    if (blockedBefore) return U.done({ outcome: 'blocked', reason: blockedBefore });
+
+    const item = items()[${json(index)}];
+    if (!item) return U.done({ outcome: 'not_found' });
+    const href = item.getAttribute('href');
     item.click();
 
-    const re = new RegExp(${json(TIKTOK.removeRepostLabel.source)}, ${json(TIKTOK.removeRepostLabel.flags)});
+    const re = ${regex(TIKTOK.removeRepostLabel)};
     const byLabel = () => ${json(category)} === 'reposts'
       ? Array.from(document.querySelectorAll('[aria-label]')).find(el => re.test(el.getAttribute('aria-label') || ''))
       : null;
+    const close = async () => {
+      const c = U.find(${json(TIKTOK.closeViewer)});
+      if (c) c.click();
+      await U.sleep(800);
+    };
+    const failure = async detail => {
+      const reason = checkBlock();
+      await close();
+      U.done(reason ? { outcome: 'blocked', reason } : { outcome: 'failed', detail });
+    };
+
     const found = await U.waitUntil(() => U.find(${json(TIKTOK.actionButton[category])}) || byLabel(), 8000);
-    if (!found) return done(false, 'Botón de acción no encontrado en el visor');
+    if (!found) return failure('Botón de acción no encontrado en el visor');
     const button = found.closest('button, a') || found;
 
     // Solo se pulsa si la acción está activa: un clic sobre un botón inactivo AGREGARÍA un like/favorito/repost.
@@ -109,18 +131,39 @@ export function removeOne(category: Category, dryRun: boolean): string {
       const neutral = /^(|none|currentcolor|#000|#000000|#fff|#ffffff|black|white)$/i;
       return Array.from(button.querySelectorAll('svg, path, g')).some(n => !neutral.test(n.getAttribute('fill') || ''));
     };
-    const describe = () => U.describe(button) + ' fills=' +
-      Array.from(button.querySelectorAll('svg, path, g')).map(n => n.getAttribute('fill')).filter(Boolean).join(',');
-    U.log('Botón: ' + describe() + ' · activo=' + isActive());
 
-    const close = () => { const c = U.find(${json(TIKTOK.closeViewer)}); if (c) c.click(); };
-    if (!isActive()) { close(); return done(false, 'La acción no está activa en este video; no se pulsa'); }
-    if (${json(dryRun)}) { close(); return done(true, 'Modo prueba: botón activo localizado, sin clic'); }
+    if (!isActive()) { await close(); return U.done({ outcome: 'inactive', href }); }
+    if (${json(dryRun)}) { await close(); return U.done({ outcome: 'removed', href, simulated: true }); }
     button.click();
 
     const undone = await U.waitUntil(() => !isActive(), 4000);
-    U.log('Después: ' + describe());
-    close();
-    done(!!undone, undone ? 'Acción deshecha' : 'Se pulsó pero el estado no cambió');
-  `);
+    if (!undone) return failure('Se pulsó pero el estado no cambió');
+    await close();
+    U.done({ outcome: 'removed', href, simulated: false });
+  `;
+}
+
+// Solo para el panel de depuración: atributos data-e2e y etiquetas de botones de la página.
+export function inspectPage(): string {
+  return `
+    const e2e = {};
+    document.querySelectorAll('[data-e2e]').forEach(el => {
+      const k = el.getAttribute('data-e2e');
+      e2e[k] = (e2e[k] || 0) + 1;
+    });
+    const labels = [];
+    document.querySelectorAll('button, [role="button"], [aria-label]').forEach(el => {
+      const label = (el.getAttribute('aria-label') || el.textContent || '').trim();
+      if (label && label.length < 40 && !labels.includes(label)) labels.push(label);
+    });
+    const body = document.body;
+    U.done({
+      url: location.href,
+      title: document.title,
+      textLength: body ? body.innerText.length : 0,
+      snippet: body ? body.innerHTML.slice(0, 400) : '',
+      e2e,
+      labels: labels.slice(0, 80),
+    });
+  `;
 }

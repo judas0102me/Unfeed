@@ -2,7 +2,7 @@
 // En la fase 1 este objeto se descargará de la configuración remota para
 // poder corregirlo sin publicar una nueva versión de la app.
 
-export type Category = 'reposts' | 'likes' | 'favorites';
+import type { Category } from '../types';
 
 export const TIKTOK = {
   loginUrl: 'https://www.tiktok.com/login',
@@ -41,4 +41,9 @@ export const TIKTOK = {
   removeRepostLabel: /(eliminar la publicaci[oó]n compartida|remove repost|undo repost|quitar repost)/i,
 
   closeViewer: ['[data-e2e="browse-close"]', 'button[aria-label="Close"]', 'button[aria-label="Cerrar"]'],
+
+  // Sin verificar: aún no hemos visto un captcha ni un aviso de límite de TikTok en la cuenta de prueba.
+  captcha: ['#captcha-verify-container', '#captcha_container', '[class*="captcha_verify" i]', 'iframe[src*="captcha"]'],
+  toast: ['[role="alert"]', '[class*="toast" i]'],
+  rateLimitText: /(demasiado r[aá]pido|too fast|too many|demasiadas|try again later|int[eé]ntalo m[aá]s tarde)/i,
 } as const;
