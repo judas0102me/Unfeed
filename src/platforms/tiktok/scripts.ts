@@ -28,10 +28,16 @@ const items = () => {
 // los toasts: en el texto de la página aparecen las descripciones de los videos.
 const checkBlock = (sel: TikTokSelectors) => `
 const checkBlock = () => {
-  if (U.find(${json(sel.captcha)})) return 'captcha';
+  const all = selectors => selectors.flatMap(s => Array.from(document.querySelectorAll(s)));
+  const visible = el => {
+    const box = el.getBoundingClientRect();
+    return box.width > 0 && box.height > 0;
+  };
+  if (all(${json(sel.captcha)}).some(visible)) return 'captcha';
+  const puzzle = ${regex(sel.captchaText)};
+  if (all(${json(sel.dialog)}).some(el => visible(el) && puzzle.test(el.textContent || ''))) return 'captcha';
   const rate = ${regex(sel.rateLimitText)};
-  const toasts = ${json(sel.toast)}.flatMap(s => Array.from(document.querySelectorAll(s)));
-  if (toasts.some(t => rate.test(t.textContent || ''))) return 'rate_limit';
+  if (all(${json(sel.toast)}).some(t => rate.test(t.textContent || ''))) return 'rate_limit';
   if (U.find(${json(sel.loggedOut)})) return 'logged_out';
   return null;
 };

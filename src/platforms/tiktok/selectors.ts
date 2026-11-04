@@ -17,6 +17,8 @@ export type TikTokSelectors = {
   removeRepostLabel: RegExp;
   closeViewer: string[];
   captcha: string[];
+  dialog: string[];
+  captchaText: RegExp;
   toast: string[];
   rateLimitText: RegExp;
 };
@@ -59,16 +61,20 @@ export const TIKTOK: TikTokSelectors = {
 
   closeViewer: ['[data-e2e="browse-close"]', 'button[aria-label="Close"]', 'button[aria-label="Cerrar"]'],
 
-  // Sin verificar: aún no hemos visto un captcha ni un aviso de límite de TikTok en la cuenta de prueba.
-  captcha: ['#captcha-verify-container', '#captcha_container', '[class*="captcha_verify" i]', 'iframe[src*="captcha"]'],
+  // Visto en TikTok el 3 nov 2026: #captcha-verify-container-main-page y botones #captcha_*.
+  captcha: ['[id*="captcha" i]', 'iframe[src*="captcha"]'],
+  // Respaldo por texto, solo dentro de ventanas: en la página aparecen descripciones de videos.
+  dialog: ['[role="dialog"]', '[class*="modal" i]'],
+  captchaText: /(slider to fit the puzzle|completa el rompecabezas|arrastra el control|desliza .*rompecabezas|verify to continue)/i,
+  // Sin verificar: aún no hemos visto un aviso de límite de TikTok en la cuenta de prueba.
   toast: ['[role="alert"]', '[class*="toast" i]'],
   rateLimitText: /(demasiado r[aá]pido|too fast|too many|demasiadas|try again later|int[eé]ntalo m[aá]s tarde)/i,
 };
 
 const CATEGORIES: Category[] = ['reposts', 'likes', 'favorites'];
-const LIST_KEYS = ['loggedOut', 'profileLink', 'gridItem', 'closeViewer', 'captcha', 'toast'] as const;
+const LIST_KEYS = ['loggedOut', 'profileLink', 'gridItem', 'closeViewer', 'captcha', 'dialog', 'toast'] as const;
 const BY_CATEGORY_KEYS = ['tabs', 'actionButton'] as const;
-const REGEX_KEYS = ['removeRepostLabel', 'rateLimitText'] as const;
+const REGEX_KEYS = ['removeRepostLabel', 'captchaText', 'rateLimitText'] as const;
 
 const isList = (v: unknown): v is string[] =>
   Array.isArray(v) && v.length > 0 && v.every(s => typeof s === 'string' && s.length > 0);

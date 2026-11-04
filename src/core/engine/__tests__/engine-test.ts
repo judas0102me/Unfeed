@@ -13,6 +13,8 @@ type FakeOptions = {
   blockAfterRemovals?: number;
   blockReason?: BlockReason;
   detectBlock?: BlockReason | null;
+  // El bloqueo aparece después de esta cantidad de consultas a detectBlock.
+  blockAfterChecks?: number;
   throwOnHref?: string;
   openCategoryError?: string;
 };
@@ -22,6 +24,7 @@ function fakeAdapter(lists: Partial<Record<Category, Item[]>>, opts: FakeOptions
   const pageSize = opts.pageSize ?? 100;
   let current: Category = 'reposts';
   let loaded = 0;
+  let checks = 0;
   const removed: string[] = [];
   const calls: { category: Category; index: number }[] = [];
   const items = () => lists[current] ?? [];
@@ -34,7 +37,11 @@ function fakeAdapter(lists: Partial<Record<Category, Item[]>>, opts: FakeOptions
     userAgent: '',
     categories: ['reposts', 'likes', 'favorites'],
     detectSession: async () => ({ loggedIn: true, profileUrl: '/@test' }),
-    detectBlock: async () => opts.detectBlock ?? null,
+    detectBlock: async () => {
+      checks++;
+      if (opts.blockAfterChecks !== undefined && checks <= opts.blockAfterChecks) return null;
+      return opts.detectBlock ?? null;
+    },
     logout: async () => {},
     openCategory: async category => {
       if (opts.openCategoryError) throw new Error(opts.openCategoryError);
@@ -205,6 +212,30 @@ describe('CleaningEngine', () => {
     const state = await engine.run(['reposts']);
 
     expect(state.stopReason).toEqual({ kind: 'blocked', reason: 'logged_out' });
+  });
+
+  it('tras un solo fallo comprueba si hay bloqueo antes de seguir', async () => {
+    const { adapter, removed } = fakeAdapter({ reposts: makeItems('r', 5) }, { failHrefs: ['/r/0'], detectBlock: 'captcha' });
+    const { engine } = makeEngine(adapter);
+
+    const state = await engine.run(['reposts']);
+
+    expect(state.stopReason).toEqual({ kind: 'blocked', reason: 'captcha' });
+    expect(state.stats.reposts.failed).toBe(1);
+    expect(removed).toEqual([]);
+  });
+
+  it('un bloqueo que aparece tras el último elemento detiene la limpieza', async () => {
+    const { adapter, calls } = fakeAdapter(
+      { favorites: makeItems('f', 2), likes: makeItems('l', 2) },
+      { failHrefs: ['/f/0', '/f/1'], detectBlock: 'captcha', blockAfterChecks: 2 },
+    );
+    const { engine } = makeEngine(adapter);
+
+    const state = await engine.run(['favorites', 'likes']);
+
+    expect(state.stopReason).toEqual({ kind: 'blocked', reason: 'captcha' });
+    expect(calls.some(c => c.category === 'likes')).toBe(false);
   });
 
   it('un script que no responde cuenta como fallo', async () => {

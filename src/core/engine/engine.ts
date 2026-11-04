@@ -162,6 +162,8 @@ export class CleaningEngine {
         await adapter.loadMore();
         list = await adapter.listItems();
         if (index >= list.length) {
+          const block = await adapter.detectBlock();
+          if (block) return { kind: 'blocked', reason: block };
           // Categoría terminada: lo guardado ya no hace falta y, si el usuario vuelve a dar
           // like a algo, la próxima limpieza debe verlo.
           if (!options.dryRun) options.progress.clear(category);
@@ -196,10 +198,10 @@ export class CleaningEngine {
 
         case 'failed': {
           this.count(category, 'failed');
-          if (++failures >= options.maxConsecutiveFailures) {
-            const block = await adapter.detectBlock();
-            return block ? { kind: 'blocked', reason: block } : { kind: 'too_many_failures' };
-          }
+          // El captcha puede salir después de responder el script: se mira tras cada fallo.
+          const block = await adapter.detectBlock();
+          if (block) return { kind: 'blocked', reason: block };
+          if (++failures >= options.maxConsecutiveFailures) return { kind: 'too_many_failures' };
           index++;
           await this.rest(options.pace);
           break;
