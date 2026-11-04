@@ -44,6 +44,8 @@
     "running": "Cleaning {{category}}…",
     "paused": "Paused",
     "resting": "Short break so TikTok doesn't get suspicious",
+    "verifying": "Confirm it's you",
+    "verifyingHint": "TikTok is asking for a verification. Complete it here and the cleaning will continue on its own.",
     "removed_one": "removed",
     "removed_other": "removed",
     "row_one": "{{removed}} removed, {{skipped}} already gone",

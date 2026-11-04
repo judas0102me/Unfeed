@@ -44,6 +44,8 @@
     "running": "Limpiando {{category}}…",
     "paused": "En pausa",
     "resting": "Pausa breve para no alertar a TikTok",
+    "verifying": "Confirma que eres tú",
+    "verifyingHint": "TikTok pide una verificación. Resuélvela aquí y la limpieza seguirá sola.",
     "removed_one": "eliminado",
     "removed_other": "eliminados",
     "row_one": "{{removed}} eliminado, {{skipped}} ya no estaban",

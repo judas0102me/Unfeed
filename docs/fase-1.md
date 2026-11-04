@@ -57,6 +57,7 @@ Los scripts se ejecutan con `ScriptRunner` (`src/core/runner.ts`): cada script l
 - Recorre los elementos de la pestaña uno a uno; los que ya están inactivos se saltan (TikTok guarda la lista en caché).
 - Ritmo: una acción cada 1,5–4 s con variación aleatoria y una pausa larga cada 20–30 acciones.
 - Se detiene si detecta bloqueo, si se pierde la sesión o si se alcanza el límite diario.
+- Si TikTok pide un captcha, Progreso deja tocar la página durante 5 minutos para que el usuario lo resuelva y la limpieza sigue sola. La app nunca lo resuelve por su cuenta.
 - Pausa y reanudación; el progreso se guarda para continuar después.
 - Mantiene la pantalla encendida (`expo-keep-awake`); iOS no permite seguir en segundo plano.
 - Desplaza la pestaña para cargar más elementos cuando se acaban los visibles.

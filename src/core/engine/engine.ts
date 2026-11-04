@@ -29,6 +29,9 @@ export type EngineOptions = {
   longPause?: Range & { everyMin: number; everyMax: number };
   // Fallos seguidos antes de detenerse.
   maxConsecutiveFailures?: number;
+  // Tiempo para que el usuario resuelva un captcha. Con 0 la limpieza se detiene al verlo.
+  captchaWaitMs?: number;
+  captchaPollMs?: number;
   progress?: Progress;
   // Inyectables para las pruebas.
   sleep?: (ms: number) => Promise<void>;
@@ -41,6 +44,8 @@ const DEFAULTS = {
   skipPace: { minMs: 500, maxMs: 1200 },
   longPause: { everyMin: 20, everyMax: 30, minMs: 30000, maxMs: 60000 },
   maxConsecutiveFailures: 3,
+  captchaWaitMs: 0,
+  captchaPollMs: 2000,
   progress: NO_PROGRESS,
   sleep: (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)),
   random: Math.random,
@@ -58,8 +63,9 @@ export type StopReason =
   | { kind: 'error'; message: string };
 
 export type EngineState = {
-  // resting: pausa larga automática; paused: pausa pedida por el usuario.
-  status: 'idle' | 'running' | 'paused' | 'resting' | 'finished';
+  // resting: pausa larga automática; paused: pausa pedida por el usuario;
+  // verifying: esperando a que el usuario resuelva un captcha.
+  status: 'idle' | 'running' | 'paused' | 'resting' | 'verifying' | 'finished';
   category: Category | null;
   stats: Record<Category, CategoryStats>;
   totalRemoved: number;
@@ -148,7 +154,15 @@ export class CleaningEngine {
     this.update({ category });
     if (!(await this.checkpoint())) return { kind: 'stopped' };
 
-    await adapter.openCategory(category);
+    try {
+      await adapter.openCategory(category);
+    } catch (e) {
+      const block = await adapter.detectBlock();
+      if (!block) throw e;
+      const stop = await this.handleBlock(block);
+      if (stop) return stop;
+      await adapter.openCategory(category);
+    }
     let list = await adapter.listItems();
     let index = 0;
     let failures = 0;
@@ -163,7 +177,11 @@ export class CleaningEngine {
         list = await adapter.listItems();
         if (index >= list.length) {
           const block = await adapter.detectBlock();
-          if (block) return { kind: 'blocked', reason: block };
+          if (block) {
+            const stop = await this.handleBlock(block);
+            if (stop) return stop;
+            continue;
+          }
           // Categoría terminada: lo guardado ya no hace falta y, si el usuario vuelve a dar
           // like a algo, la próxima limpieza debe verlo.
           if (!options.dryRun) options.progress.clear(category);
@@ -187,8 +205,11 @@ export class CleaningEngine {
       if (result.outcome !== 'not_found') notFoundStreak = 0;
 
       switch (result.outcome) {
-        case 'blocked':
-          return { kind: 'blocked', reason: result.reason };
+        case 'blocked': {
+          const stop = await this.handleBlock(result.reason);
+          if (stop) return stop;
+          break;
+        }
 
         case 'not_found':
           // La lista era más corta de lo que creíamos: se carga más y, si sigue sin haber, se termina.
@@ -197,10 +218,15 @@ export class CleaningEngine {
           break;
 
         case 'failed': {
-          this.count(category, 'failed');
           // El captcha puede salir después de responder el script: se mira tras cada fallo.
+          // Si hubo bloqueo el elemento no cuenta como fallo y se vuelve a intentar.
           const block = await adapter.detectBlock();
-          if (block) return { kind: 'blocked', reason: block };
+          if (block) {
+            const stop = await this.handleBlock(block);
+            if (stop) return stop;
+            break;
+          }
+          this.count(category, 'failed');
           if (++failures >= options.maxConsecutiveFailures) return { kind: 'too_many_failures' };
           index++;
           await this.rest(options.pace);
@@ -260,6 +286,23 @@ export class CleaningEngine {
   }
 
   // Espera un tiempo aleatorio del rango; se corta si se pide detener.
+  // Un captcha lo puede resolver el usuario; devuelve null si la limpieza puede seguir.
+  private async handleBlock(reason: BlockReason): Promise<StopReason | null> {
+    const { adapter, options } = this;
+    if (reason !== 'captcha' || options.captchaWaitMs <= 0) return { kind: 'blocked', reason };
+    this.update({ status: 'verifying' });
+    for (let waited = 0; waited < options.captchaWaitMs && !this.stopRequested; waited += options.captchaPollMs) {
+      await this.rest({ minMs: options.captchaPollMs, maxMs: options.captchaPollMs });
+      if (this.stopRequested) break;
+      const block = await adapter.detectBlock().catch(() => reason);
+      if (!block) {
+        this.update({ status: 'running' });
+        return null;
+      }
+    }
+    return this.stopRequested ? { kind: 'stopped' } : { kind: 'blocked', reason };
+  }
+
   private rest({ minMs, maxMs }: Range): Promise<void> {
     if (this.stopRequested) return Promise.resolve();
     const ms = Math.round(minMs + (maxMs - minMs) * this.options.random());

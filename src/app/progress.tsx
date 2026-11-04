@@ -18,6 +18,7 @@ import type { Category } from '@/platforms/types';
 import { radius, spacing, useColors } from '@/theme/colors';
 
 const CATEGORIES: Category[] = ['reposts', 'likes', 'favorites'];
+const CAPTCHA_WAIT_MS = 5 * 60 * 1000;
 
 export default function Progress() {
   useKeepAwake();
@@ -35,6 +36,7 @@ export default function Progress() {
       new CleaningEngine(adapter, quota, {
         dryRun,
         progress: new ProgressStore(storage, adapter.id),
+        captchaWaitMs: CAPTCHA_WAIT_MS,
         ...paceFor(appStore.speed()),
       }),
   );
@@ -75,8 +77,10 @@ export default function Progress() {
     router.replace('/summary');
   };
 
-  const title =
-    state.status === 'paused'
+  const verifying = state.status === 'verifying';
+  const title = verifying
+    ? t('progress.verifying')
+    : state.status === 'paused'
       ? t('progress.paused')
       : state.status === 'resting'
         ? t('progress.resting')
@@ -94,7 +98,7 @@ export default function Progress() {
             <Button
               label={isPaused ? t('progress.resume') : t('progress.pause')}
               variant="secondary"
-              disabled={state.status === 'idle'}
+              disabled={state.status === 'idle' || verifying}
               onPress={() => (isPaused ? engine.resume() : engine.pause())}
             />
           </View>
@@ -105,27 +109,35 @@ export default function Progress() {
       }
     >
       <Heading style={styles.title}>{title}</Heading>
-      <Count value={state.totalRemoved} label={t('progress.removed', { count: state.totalRemoved })} />
+      {verifying ? (
+        <Body>{t('progress.verifyingHint')}</Body>
+      ) : (
+        <>
+          <Count value={state.totalRemoved} label={t('progress.removed', { count: state.totalRemoved })} />
 
-      <View>
-        {categories.map((category, index) => (
-          <View key={category} style={styles.row}>
-            <CategoryWord label={t(`categories.${category}`)} size={36} struck={index < current} dim={index > current} />
-            <Body muted style={styles.stat}>
-              {t('progress.row', { ...state.stats[category], count: state.stats[category].removed })}
-            </Body>
+          <View>
+            {categories.map((category, index) => (
+              <View key={category} style={styles.row}>
+                <CategoryWord label={t(`categories.${category}`)} size={36} struck={index < current} dim={index > current} />
+                <Body muted style={styles.stat}>
+                  {t('progress.row', { ...state.stats[category], count: state.stats[category].removed })}
+                </Body>
+              </View>
+            ))}
           </View>
-        ))}
-      </View>
-      {!dryRun && <Body muted>{t('progress.quota', { remaining: quota.remaining() })}</Body>}
+          {!dryRun && <Body muted>{t('progress.quota', { remaining: quota.remaining() })}</Body>}
+        </>
+      )}
 
-      {/* El usuario ve lo que pasa, pero no puede tocar la página mientras se limpia. */}
-      <View style={[styles.webBox, { borderColor: colors.border }]} pointerEvents="none">
+      {/* El usuario ve lo que pasa, pero solo puede tocar la página para resolver un captcha. */}
+      <View style={[styles.webBox, { borderColor: colors.border }]} pointerEvents={verifying ? 'auto' : 'none'}>
         <PlatformWebView runner={runner} uri={adapter.homeUrl} userAgent={adapter.userAgent} onLoadEnd={start} style={styles.web} />
       </View>
-      <Body muted style={styles.center}>
-        {t('progress.keepOpen')}
-      </Body>
+      {!verifying && (
+        <Body muted style={styles.center}>
+          {t('progress.keepOpen')}
+        </Body>
+      )}
     </Screen>
   );
 }

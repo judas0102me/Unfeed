@@ -15,6 +15,8 @@ type FakeOptions = {
   detectBlock?: BlockReason | null;
   // El bloqueo aparece después de esta cantidad de consultas a detectBlock.
   blockAfterChecks?: number;
+  // El bloqueo desaparece después de esta cantidad de consultas (el usuario resolvió el captcha).
+  clearBlockAfterChecks?: number;
   throwOnHref?: string;
   openCategoryError?: string;
 };
@@ -25,6 +27,7 @@ function fakeAdapter(lists: Partial<Record<Category, Item[]>>, opts: FakeOptions
   let current: Category = 'reposts';
   let loaded = 0;
   let checks = 0;
+  const blockCleared = () => opts.clearBlockAfterChecks !== undefined && checks >= opts.clearBlockAfterChecks;
   const removed: string[] = [];
   const calls: { category: Category; index: number }[] = [];
   const items = () => lists[current] ?? [];
@@ -40,11 +43,12 @@ function fakeAdapter(lists: Partial<Record<Category, Item[]>>, opts: FakeOptions
     detectBlock: async () => {
       checks++;
       if (opts.blockAfterChecks !== undefined && checks <= opts.blockAfterChecks) return null;
+      if (blockCleared()) return null;
       return opts.detectBlock ?? null;
     },
     logout: async () => {},
     openCategory: async category => {
-      if (opts.openCategoryError) throw new Error(opts.openCategoryError);
+      if (opts.openCategoryError && !blockCleared()) throw new Error(opts.openCategoryError);
       current = category;
       loaded = Math.min(pageSize, items().length);
       return loaded;
@@ -59,7 +63,7 @@ function fakeAdapter(lists: Partial<Record<Category, Item[]>>, opts: FakeOptions
       const item = visible()[index];
       if (!item) return { outcome: 'not_found' };
       if (item.href === opts.throwOnHref) throw new Error('El script no respondió');
-      if (opts.blockAfterRemovals !== undefined && removed.length >= opts.blockAfterRemovals) {
+      if (opts.blockAfterRemovals !== undefined && removed.length >= opts.blockAfterRemovals && !blockCleared()) {
         return { outcome: 'blocked', reason: opts.blockReason ?? 'rate_limit' };
       }
       if (!item.active) return { outcome: 'inactive', href: item.href };
@@ -221,7 +225,7 @@ describe('CleaningEngine', () => {
     const state = await engine.run(['reposts']);
 
     expect(state.stopReason).toEqual({ kind: 'blocked', reason: 'captcha' });
-    expect(state.stats.reposts.failed).toBe(1);
+    expect(state.stats.reposts.failed).toBe(0);
     expect(removed).toEqual([]);
   });
 
@@ -236,6 +240,72 @@ describe('CleaningEngine', () => {
 
     expect(state.stopReason).toEqual({ kind: 'blocked', reason: 'captcha' });
     expect(calls.some(c => c.category === 'likes')).toBe(false);
+  });
+
+  describe('captcha resoluble por el usuario', () => {
+    const captcha = { blockAfterRemovals: 1, blockReason: 'captcha', detectBlock: 'captcha' } as const;
+
+    it('espera a que se resuelva y sigue por el mismo elemento', async () => {
+      const { adapter, removed } = fakeAdapter({ likes: makeItems('l', 3) }, { ...captcha, clearBlockAfterChecks: 3 });
+      const { engine } = makeEngine(adapter, makeQuota(), { captchaWaitMs: 60000 });
+      const statuses: string[] = [];
+      engine.subscribe(s => statuses.push(s.status));
+
+      const state = await engine.run(['likes']);
+
+      expect(statuses).toContain('verifying');
+      expect(state.stopReason).toEqual({ kind: 'completed' });
+      expect(removed).toEqual(['/l/0', '/l/1', '/l/2']);
+    });
+
+    it('se detiene si no se resuelve a tiempo', async () => {
+      const { adapter, removed } = fakeAdapter({ likes: makeItems('l', 3) }, captcha);
+      const { engine, sleeps } = makeEngine(adapter, makeQuota(), { captchaWaitMs: 6000, captchaPollMs: 2000 });
+
+      const state = await engine.run(['likes']);
+
+      expect(state.stopReason).toEqual({ kind: 'blocked', reason: 'captcha' });
+      expect(sleeps.filter(ms => ms === 2000)).toHaveLength(3);
+      expect(removed).toEqual(['/l/0']);
+    });
+
+    it('el usuario puede detener la espera', async () => {
+      const { adapter } = fakeAdapter({ likes: makeItems('l', 3) }, captcha);
+      const { engine } = makeEngine(adapter, makeQuota(), { captchaWaitMs: 60000 });
+      engine.subscribe(s => {
+        if (s.status === 'verifying') engine.stop();
+      });
+
+      const state = await engine.run(['likes']);
+
+      expect(state.stopReason).toEqual({ kind: 'stopped' });
+    });
+
+    it('otros bloqueos no esperan', async () => {
+      const { adapter, calls } = fakeAdapter(
+        { likes: makeItems('l', 3) },
+        { blockAfterRemovals: 1, blockReason: 'rate_limit', detectBlock: 'rate_limit' },
+      );
+      const { engine } = makeEngine(adapter, makeQuota(), { captchaWaitMs: 60000 });
+
+      const state = await engine.run(['likes']);
+
+      expect(state.stopReason).toEqual({ kind: 'blocked', reason: 'rate_limit' });
+      expect(calls).toHaveLength(2);
+    });
+
+    it('si el captcha impide abrir la categoría, la vuelve a abrir al resolverlo', async () => {
+      const { adapter, removed } = fakeAdapter(
+        { likes: makeItems('l', 2) },
+        { openCategoryError: 'Pestaña no encontrada', detectBlock: 'captcha', clearBlockAfterChecks: 2 },
+      );
+      const { engine } = makeEngine(adapter, makeQuota(), { captchaWaitMs: 60000 });
+
+      const state = await engine.run(['likes']);
+
+      expect(state.stopReason).toEqual({ kind: 'completed' });
+      expect(removed).toEqual(['/l/0', '/l/1']);
+    });
   });
 
   it('un script que no responde cuenta como fallo', async () => {
