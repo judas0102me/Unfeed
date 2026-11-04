@@ -32,7 +32,7 @@ export default function Settings() {
     ]);
 
   return (
-    <Screen scroll>
+    <Screen scroll ad>
       <TextLink label={t('common.back')} onPress={() => router.back()} />
       <Heading>{t('settings.title')}</Heading>
 

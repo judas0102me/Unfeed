@@ -3,9 +3,10 @@ import { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextProps, View, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AdBanner } from '@/components/AdBanner';
 import { radius, spacing, useColors } from '@/theme/colors';
 
-export function Screen({ children, scroll, footer }: { children: ReactNode; scroll?: boolean; footer?: ReactNode }) {
+export function Screen({ children, scroll, footer, ad }: { children: ReactNode; scroll?: boolean; footer?: ReactNode; ad?: boolean }) {
   const body = scroll ? (
     <ScrollView contentContainerStyle={styles.content}>{children}</ScrollView>
   ) : (
@@ -15,6 +16,7 @@ export function Screen({ children, scroll, footer }: { children: ReactNode; scro
     <SafeAreaView style={styles.fill}>
       {body}
       {footer && <View style={styles.footer}>{footer}</View>}
+      {ad && <AdBanner />}
     </SafeAreaView>
   );
 }

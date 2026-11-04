@@ -67,6 +67,17 @@ En la prueba real (1 nov 2026) la web de TikTok quita el favorito con `POST /api
 
 Por eso, tras quitar un favorito, el adaptador lee `__UNIVERSAL_DATA_FOR_REHYDRATION__` de la página del video. Si sigue en `collected: true`, cuenta un fallo en vez de una eliminación y no gasta cupo. Falta confirmar en la app móvil de TikTok si los favoritos quitados se mantienen.
 
+## Anuncios (AdMob)
+
+Banner adaptable anclado (`LARGE_ANCHORED_ADAPTIVE_BANNER`, porque `ANCHORED_ADAPTIVE_BANNER` está obsoleto) en Limpiar, Resumen y Ajustes. No va en Progreso, junto a Pausar y Detener, para evitar clics accidentales, ni en las pantallas con el WebView de inicio de sesión.
+
+Antes de publicar:
+
+- Sustituir en `app.json` los App ID de muestra de Google por los reales.
+- Poner los bloques de anuncios en `PRODUCTION_BANNER_ID` (`src/core/ads.ts`). Mientras sean `null` no se muestra ningún banner en producción.
+- Configurar en AdMob los mensajes de consentimiento (GDPR) y de ATT (iOS).
+- Añadir `skAdNetworkItems` en `app.json`.
+
 ## Pantallas
 
 1. **Onboarding**: cómo funciona, aviso de riesgo (límites o bloqueos de TikTok), "no guardamos tu contraseña", y qué hacer si entras a TikTok con Google.

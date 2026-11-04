@@ -80,7 +80,7 @@
     "account": "Account",
     "logout": "Sign out",
     "privacy": "Privacy",
-    "privacyText": "Unfeed has no servers that receive your data. Your TikTok session and progress are stored only on this phone, and we never see your password.",
+    "privacyText": "Unfeed has no servers that receive your data. Your TikTok session and progress are stored only on this phone, and we never see your password. Ads are served by Google AdMob, which may use your device's identifiers.",
     "dev": "Development",
     "dryRun": "Test mode (no final tap)",
     "debug": "Debug panel"

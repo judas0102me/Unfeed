@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 
+import { initAds } from '@/core/ads';
 import { refreshRemoteConfig } from '@/core/config/remoteConfig';
 import { storage } from '@/core/storage';
 import { useColors } from '@/theme/colors';
@@ -15,6 +16,7 @@ export default function RootLayout() {
   // Sin esperar: si hay selectores nuevos, se usan en la próxima limpieza.
   useEffect(() => {
     refreshRemoteConfig(storage);
+    initAds();
   }, []);
   return (
     <>

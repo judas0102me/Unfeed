@@ -42,6 +42,7 @@ export default function Clean() {
 
   return (
     <Screen
+      ad
       scroll
       footer={
         <>

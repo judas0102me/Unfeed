@@ -37,7 +37,7 @@ export default function Summary() {
   );
 
   return (
-    <Screen scroll footer={footer}>
+    <Screen scroll ad footer={footer}>
       <Heading>{t(messageKey(reason, failed), { message: reason?.kind === 'error' ? reason.message : '', count: failed })}</Heading>
       {failed > 0 && <Body muted>{t('summary.failedHint')}</Body>}
       <View style={styles.total}>
