@@ -3,18 +3,19 @@ import { useKeepAwake } from 'expo-keep-awake';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { CategoryWord, Count } from '@/components/brand';
 import { Button } from '@/components/Button';
 import { PlatformWebView, usePlatform } from '@/components/PlatformWebView';
-import { Body, Card, Heading, Screen } from '@/components/ui';
+import { Body, Heading, Screen } from '@/components/ui';
 import { appStore, paceFor } from '@/core/appStore';
 import { CleaningEngine, EngineState } from '@/core/engine/engine';
 import { ProgressStore } from '@/core/engine/progress';
 import { DailyQuota } from '@/core/limits/dailyQuota';
 import { storage } from '@/core/storage';
 import type { Category } from '@/platforms/types';
-import { radius, useColors } from '@/theme/colors';
+import { radius, spacing, useColors } from '@/theme/colors';
 
 const CATEGORIES: Category[] = ['reposts', 'likes', 'favorites'];
 
@@ -83,36 +84,40 @@ export default function Progress() {
           ? t('progress.running', { category: t(`categories.${state.category}`) })
           : t('progress.preparing');
   const isPaused = state.status === 'paused';
+  const current = state.category ? categories.indexOf(state.category) : -1;
 
   return (
     <Screen
       footer={
-        <>
-          <Button
-            label={isPaused ? t('progress.resume') : t('progress.pause')}
-            variant="secondary"
-            disabled={state.status === 'idle'}
-            onPress={() => (isPaused ? engine.resume() : engine.pause())}
-          />
-          <Button label={t('progress.stop')} variant="danger" onPress={() => engine.stop()} />
-        </>
+        <View style={styles.actions}>
+          <View style={styles.action}>
+            <Button
+              label={isPaused ? t('progress.resume') : t('progress.pause')}
+              variant="secondary"
+              disabled={state.status === 'idle'}
+              onPress={() => (isPaused ? engine.resume() : engine.pause())}
+            />
+          </View>
+          <View style={styles.action}>
+            <Button label={t('progress.stop')} variant="danger" onPress={() => engine.stop()} />
+          </View>
+        </View>
       }
     >
       <Heading style={styles.title}>{title}</Heading>
-      <View style={styles.total}>
-        <Text style={[styles.totalNumber, { color: colors.accent }]}>{state.totalRemoved}</Text>
-        <Body muted>{t('progress.removed')}</Body>
-      </View>
+      <Count value={state.totalRemoved} label={t('progress.removed', { count: state.totalRemoved })} />
 
-      <Card>
-        {categories.map(category => (
+      <View>
+        {categories.map((category, index) => (
           <View key={category} style={styles.row}>
-            <Body style={{ fontWeight: state.category === category ? '700' : '400' }}>{t(`categories.${category}`)}</Body>
-            <Body muted>{t('progress.row', state.stats[category])}</Body>
+            <CategoryWord label={t(`categories.${category}`)} size={36} struck={index < current} dim={index > current} />
+            <Body muted style={styles.stat}>
+              {t('progress.row', { ...state.stats[category], count: state.stats[category].removed })}
+            </Body>
           </View>
         ))}
-        {!dryRun && <Body muted>{t('progress.quota', { remaining: quota.remaining() })}</Body>}
-      </Card>
+      </View>
+      {!dryRun && <Body muted>{t('progress.quota', { remaining: quota.remaining() })}</Body>}
 
       {/* El usuario ve lo que pasa, pero no puede tocar la página mientras se limpia. */}
       <View style={[styles.webBox, { borderColor: colors.border }]} pointerEvents="none">
@@ -126,11 +131,12 @@ export default function Progress() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 22 },
-  total: { alignItems: 'center' },
-  totalNumber: { fontSize: 56, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  row: { flexDirection: 'row', justifyContent: 'space-between' },
-  webBox: { flex: 1, minHeight: 180, borderRadius: radius.md, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
+  title: { fontSize: 32, lineHeight: 36 },
+  actions: { flexDirection: 'row', gap: spacing.sm },
+  action: { flex: 1 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md },
+  stat: { flexShrink: 1, textAlign: 'right', fontSize: 13, lineHeight: 18 },
+  webBox: { flex: 1, minHeight: 140, borderRadius: radius.md, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
   web: { flex: 1 },
   center: { textAlign: 'center' },
 });

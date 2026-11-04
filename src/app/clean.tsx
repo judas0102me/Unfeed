@@ -4,13 +4,14 @@ import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
+import { CategoryToggle, Meter, Wordmark } from '@/components/brand';
 import { Button } from '@/components/Button';
-import { Body, Card, Heading, OptionRow, Screen, TextLink } from '@/components/ui';
+import { Body, Screen, TextLink } from '@/components/ui';
 import { appStore } from '@/core/appStore';
 import { DailyQuota, FREE_DAILY_LIMIT } from '@/core/limits/dailyQuota';
 import { storage } from '@/core/storage';
 import type { Category } from '@/platforms/types';
-import { useColors } from '@/theme/colors';
+import { spacing, useColors } from '@/theme/colors';
 
 const CATEGORIES: Category[] = ['reposts', 'likes', 'favorites'];
 
@@ -46,30 +47,33 @@ export default function Clean() {
       scroll
       footer={
         <>
-          {dryRun && <Body style={{ color: colors.danger, textAlign: 'center' }}>{t('clean.dryRun')}</Body>}
+          <Body strong>
+            {remaining > 0
+              ? t('clean.quota', { remaining, limit: FREE_DAILY_LIMIT })
+              : t('clean.quotaEmpty', { limit: FREE_DAILY_LIMIT })}
+          </Body>
+          <Meter value={remaining} max={FREE_DAILY_LIMIT} />
+          {dryRun && <Body style={{ color: colors.danger }}>{t('clean.dryRun')}</Body>}
           <Button label={t('clean.start')} onPress={start} disabled={!canStart} />
         </>
       }
     >
       <View style={styles.top}>
-        <Heading>Unfeed</Heading>
+        <Wordmark />
         <TextLink label={t('clean.settings')} onPress={() => router.push('/settings')} />
       </View>
-      <Body muted>{t('clean.account', { handle: account.handle })}</Body>
-
-      <Card>
-        <Body style={{ fontWeight: '600' }}>
-          {remaining > 0
-            ? t('clean.quota', { remaining, limit: FREE_DAILY_LIMIT })
-            : t('clean.quotaEmpty', { limit: FREE_DAILY_LIMIT })}
-        </Body>
+      <View>
+        <Body muted>{t('clean.account', { handle: account.handle })}</Body>
         {lastRun && <Body muted>{t('clean.lastRun', { count: lastRun.totalRemoved })}</Body>}
-      </Card>
+      </View>
 
-      <Body style={{ fontWeight: '600' }}>{t('clean.choose')}</Body>
+      <View style={styles.choose}>
+        <Body strong>{t('clean.choose')}</Body>
+        <Body muted>{t('clean.hint')}</Body>
+      </View>
       <View>
         {CATEGORIES.map(category => (
-          <OptionRow
+          <CategoryToggle
             key={category}
             label={t(`categories.${category}`)}
             selected={selected.includes(category)}
@@ -83,4 +87,5 @@ export default function Clean() {
 
 const styles = StyleSheet.create({
   top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  choose: { marginTop: spacing.md },
 });

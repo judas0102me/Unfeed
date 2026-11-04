@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
 
-import { radius, spacing, useColors } from '@/theme/colors';
+import { fonts, radius, spacing, useColors } from '@/theme/colors';
 
 type Variant = 'primary' | 'secondary' | 'danger';
 
@@ -16,8 +16,8 @@ export function Button({
   disabled?: boolean;
 }) {
   const colors = useColors();
-  const background = { primary: colors.accent, secondary: colors.surface, danger: colors.danger }[variant];
-  const foreground = variant === 'secondary' ? colors.text : colors.accentText;
+  const background = { primary: colors.text, secondary: colors.surface, danger: colors.danger }[variant];
+  const foreground = { primary: colors.background, secondary: colors.text, danger: colors.accentText }[variant];
   return (
     <Pressable
       accessibilityRole="button"
@@ -36,11 +36,11 @@ export function Button({
 
 const styles = StyleSheet.create({
   button: {
-    paddingVertical: spacing.md,
+    paddingVertical: 14,
     paddingHorizontal: spacing.lg,
     borderRadius: radius.md,
     alignItems: 'center',
   },
   dim: { opacity: 0.6 },
-  label: { fontSize: 17, fontWeight: '600' },
+  label: { fontFamily: fonts.display, fontSize: 24, lineHeight: 28 },
 });

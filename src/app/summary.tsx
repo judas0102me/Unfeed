@@ -1,16 +1,17 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { CategoryWord, Count } from '@/components/brand';
 import { Button } from '@/components/Button';
-import { Body, Card, Heading, Screen } from '@/components/ui';
+import { Body, Heading, Screen } from '@/components/ui';
 import { appStore } from '@/core/appStore';
 import type { StopReason } from '@/core/engine/engine';
 import { DailyQuota, FREE_DAILY_LIMIT } from '@/core/limits/dailyQuota';
 import { storage } from '@/core/storage';
 import type { Category } from '@/platforms/types';
-import { useColors } from '@/theme/colors';
+import { spacing, useColors } from '@/theme/colors';
 
 const CATEGORIES: Category[] = ['reposts', 'likes', 'favorites'];
 
@@ -38,30 +39,29 @@ export default function Summary() {
 
   return (
     <Screen scroll ad footer={footer}>
-      <Heading>{t(messageKey(reason, failed), { message: reason?.kind === 'error' ? reason.message : '', count: failed })}</Heading>
+      <Heading>{t(messageKey(reason, failed), { count: failed })}</Heading>
       {failed > 0 && <Body muted>{t('summary.failedHint')}</Body>}
-      <View style={styles.total}>
-        <Text style={[styles.totalNumber, { color: colors.accent }]}>{run?.totalRemoved ?? 0}</Text>
-        <Body muted>{t('summary.total')}</Body>
-      </View>
+      {reason?.kind === 'error' && <Body muted>{__DEV__ ? reason.message : t('summary.errorHint')}</Body>}
+      <Count value={run?.totalRemoved ?? 0} label={t('summary.total', { count: run?.totalRemoved ?? 0 })} />
       {run && (
-        <Card>
+        <View>
           {CATEGORIES.filter(c => run.stats[c].removed + run.stats[c].skipped + run.stats[c].failed > 0).map(category => (
             <View key={category} style={styles.row}>
-              <Body>{t(`categories.${category}`)}</Body>
-              <Body muted>{t(run.stats[category].failed ? 'summary.rowFailed' : 'progress.row', run.stats[category])}</Body>
+              <CategoryWord label={t(`categories.${category}`)} size={36} struck={run.stats[category].failed === 0} />
+              <Body muted style={styles.stat}>
+                {t(run.stats[category].failed ? 'summary.rowFailed' : 'progress.row', { ...run.stats[category], count: run.stats[category].removed })}
+              </Body>
             </View>
           ))}
-          <Body muted>{t('clean.quota', { remaining, limit: FREE_DAILY_LIMIT })}</Body>
-        </Card>
+        </View>
       )}
+      <Body muted>{t('clean.quota', { remaining, limit: FREE_DAILY_LIMIT })}</Body>
       {run?.dryRun && <Body style={{ color: colors.danger }}>{t('summary.dryRun')}</Body>}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  total: { alignItems: 'center' },
-  totalNumber: { fontSize: 56, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  row: { flexDirection: 'row', justifyContent: 'space-between' },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md },
+  stat: { flexShrink: 1, textAlign: 'right', fontSize: 13, lineHeight: 18 },
 });

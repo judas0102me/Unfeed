@@ -18,11 +18,11 @@ export default function Onboarding() {
       <Body>{t('onboarding.how')}</Body>
       <Body>{t('onboarding.device')}</Body>
       <Card>
-        <Body style={{ fontWeight: '600' }}>{t('onboarding.riskTitle')}</Body>
+        <Body strong>{t('onboarding.riskTitle')}</Body>
         <Body muted>{t('onboarding.risk')}</Body>
       </Card>
       <Card>
-        <Body style={{ fontWeight: '600' }}>{t('onboarding.googleTitle')}</Body>
+        <Body strong>{t('onboarding.googleTitle')}</Body>
         <Body muted>{t('onboarding.google')}</Body>
       </Card>
     </Screen>

@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextProps, View, ViewStyle } f
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AdBanner } from '@/components/AdBanner';
-import { radius, spacing, useColors } from '@/theme/colors';
+import { fonts, radius, spacing, useColors } from '@/theme/colors';
 
 export function Screen({ children, scroll, footer, ad }: { children: ReactNode; scroll?: boolean; footer?: ReactNode; ad?: boolean }) {
   const body = scroll ? (
@@ -30,10 +30,10 @@ export function Heading({ children, style, ...rest }: TextProps) {
   );
 }
 
-export function Body({ children, muted, style, ...rest }: TextProps & { muted?: boolean }) {
+export function Body({ children, muted, strong, style, ...rest }: TextProps & { muted?: boolean; strong?: boolean }) {
   const colors = useColors();
   return (
-    <Text style={[styles.body, { color: muted ? colors.textMuted : colors.text }, style]} {...rest}>
+    <Text style={[styles.body, strong && styles.strong, { color: muted ? colors.textMuted : colors.text }, style]} {...rest}>
       {children}
     </Text>
   );
@@ -41,7 +41,7 @@ export function Body({ children, muted, style, ...rest }: TextProps & { muted?: 
 
 export function Card({ children, style }: { children: ReactNode; style?: ViewStyle }) {
   const colors = useColors();
-  return <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, style]}>{children}</View>;
+  return <View style={[styles.card, { backgroundColor: colors.surface }, style]}>{children}</View>;
 }
 
 // Fila con casilla (selección múltiple) o círculo (una opción).
@@ -90,9 +90,10 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   content: { padding: spacing.lg, gap: spacing.md },
   footer: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md, gap: spacing.sm },
-  heading: { fontSize: 28, fontWeight: '700' },
-  body: { fontSize: 16, lineHeight: 23 },
-  card: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.md, padding: spacing.md, gap: spacing.sm },
+  heading: { fontFamily: fonts.display, fontSize: 40, lineHeight: 44 },
+  body: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 23 },
+  strong: { fontFamily: fonts.strong },
+  card: { borderRadius: radius.md, padding: spacing.md, gap: spacing.sm },
   option: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -102,8 +103,8 @@ const styles = StyleSheet.create({
   },
   checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   radio: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  mark: { fontSize: 14, fontWeight: '700' },
-  optionLabel: { fontSize: 17 },
-  link: { fontSize: 16, fontWeight: '600' },
+  mark: { fontFamily: fonts.strong, fontSize: 14 },
+  optionLabel: { fontFamily: fonts.regular, fontSize: 17 },
+  link: { fontFamily: fonts.strong, fontSize: 16 },
   pressed: { opacity: 0.6 },
 });

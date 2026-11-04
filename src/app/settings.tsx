@@ -37,7 +37,7 @@ export default function Settings() {
       <Heading>{t('settings.title')}</Heading>
 
       <Card>
-        <Body style={{ fontWeight: '600' }}>{t('settings.speed')}</Body>
+        <Body strong>{t('settings.speed')}</Body>
         <View>
           <OptionRow kind="radio" label={t('settings.speedNormal')} selected={speed === 'normal'} onPress={() => chooseSpeed('normal')} />
           <OptionRow kind="radio" label={t('settings.speedCareful')} selected={speed === 'careful'} onPress={() => chooseSpeed('careful')} />
@@ -46,27 +46,27 @@ export default function Settings() {
       </Card>
 
       <Card>
-        <Body style={{ fontWeight: '600' }}>{t('settings.language')}</Body>
+        <Body strong>{t('settings.language')}</Body>
         <Body muted>{t('settings.languageHint')}</Body>
         <TextLink label={t('settings.languageOpen')} onPress={() => Linking.openSettings()} />
       </Card>
 
       {account && (
         <Card>
-          <Body style={{ fontWeight: '600' }}>{t('settings.account')}</Body>
+          <Body strong>{t('settings.account')}</Body>
           <Body muted>@{account.handle}</Body>
           <Button label={t('settings.logout')} variant="danger" onPress={logout} />
         </Card>
       )}
 
       <Card>
-        <Body style={{ fontWeight: '600' }}>{t('settings.privacy')}</Body>
+        <Body strong>{t('settings.privacy')}</Body>
         <Body muted>{t('settings.privacyText')}</Body>
       </Card>
 
       {__DEV__ && (
         <Card>
-          <Body style={{ fontWeight: '600' }}>{t('settings.dev')}</Body>
+          <Body strong>{t('settings.dev')}</Body>
           <OptionRow label={t('settings.dryRun')} selected={dryRun} onPress={toggleDryRun} />
           <TextLink label={t('settings.debug')} onPress={() => router.push('/debug')} />
         </Card>

@@ -51,7 +51,8 @@
           "delayAppMeasurementInit": true,
           "userTrackingUsageDescription": "This identifier will be used to deliver personalized ads to you."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "scheme": "unfeed",
     "experiments": {
