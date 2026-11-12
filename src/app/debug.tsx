@@ -1,14 +1,17 @@
-// Fase 0 (prueba técnica): pantalla de depuración para validar que se puede
-// iniciar sesión en TikTok dentro del WebView y deshacer reposts, likes y favoritos.
+// Panel de la fase 0: prueba manual del adaptador de TikTok. Solo disponible en desarrollo.
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { Redirect } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 
-import { BEFORE_LOAD, parseBridgeMessage } from './src/core/bridge';
-import * as tiktok from './src/platforms/tiktok/scripts';
-import { Category, TIKTOK } from './src/platforms/tiktok/selectors';
+import { BEFORE_LOAD, parseBridgeMessage } from '@/core/bridge';
+import { ScriptRunner } from '@/core/runner';
+import { createTikTokAdapter } from '@/platforms/tiktok/adapter';
+import { inspectPage } from '@/platforms/tiktok/scripts';
+import { TIKTOK } from '@/platforms/tiktok/selectors';
+import type { Category, RemoveResult } from '@/platforms/types';
 
 const CATEGORIES: { key: Category; label: string }[] = [
   { key: 'reposts', label: 'Reposts' },
@@ -16,68 +19,96 @@ const CATEGORIES: { key: Category; label: string }[] = [
   { key: 'favorites', label: 'Favoritos' },
 ];
 
-export default function App() {
-  return (
-    <SafeAreaProvider>
-      <DebugScreen />
-    </SafeAreaProvider>
-  );
+type Inspection = { url: string; title: string; textLength: number; snippet: string; e2e: Record<string, number>; labels: string[] };
+
+function describeResult(r: RemoveResult): string {
+  switch (r.outcome) {
+    case 'removed':
+      return r.simulated ? `modo prueba, botón activo en ${r.href}` : `eliminado ${r.href}`;
+    case 'inactive':
+      return `ya inactivo ${r.href}`;
+    case 'not_found':
+      return 'no hay más elementos visibles';
+    case 'blocked':
+      return `BLOQUEO: ${r.reason}`;
+    case 'failed':
+      return `falló: ${r.detail}`;
+  }
+}
+
+export default function DebugRoute() {
+  if (!__DEV__) return <Redirect href="/" />;
+  return <DebugScreen />;
 }
 
 function DebugScreen() {
-  // WebView<P = undefined> se vuelve `never` con TS 6; se fija P = object explícitamente.
-  const webview = useRef<WebView<object>>(null);
   const [url, setUrl] = useState<string>(TIKTOK.homeUrl);
-  const [profileUrl, setProfileUrl] = useState<string | null>(null);
   const [dryRun, setDryRun] = useState(true);
+  const [busy, setBusy] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [panelOpen, setPanelOpen] = useState(true);
 
-  const log = useCallback((line: string) => {
+  // Se crean una sola vez; el WebView se conecta al runner con su ref.
+  const [runner] = useState(() => new ScriptRunner());
+  const [adapter] = useState(() => createTikTokAdapter(runner));
+
+  const log = (line: string) => {
     console.log('[unfeed]', line);
     // Solo en desarrollo: copia del log a un colector local para leerlo fuera del simulador.
     if (__DEV__) fetch('http://127.0.0.1:8099', { method: 'POST', body: line }).catch(() => {});
     const time = new Date().toLocaleTimeString();
     setLogs(prev => [`${time}  ${line}`, ...prev].slice(0, 200));
-  }, []);
+  };
 
-  const run = (script: string) => webview.current?.injectJavaScript(script);
   const go = (target: string) => setUrl(target + (target.includes('?') ? '&' : '?') + '_=' + Date.now());
+
+  // Ejecuta una acción del adaptador, de una en una, y registra el resultado.
+  const call = async <T,>(label: string, fn: () => Promise<T>, show: (value: T) => string) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      log(`✅ ${label}: ${show(await fn())}`);
+    } catch (e) {
+      log(`❌ ${label}: ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Recorre la pestaña desde el principio saltando los ya inactivos, como hará el motor.
+  const removeNext = async (category: Category) => {
+    for (let index = 0; ; index++) {
+      const result = await adapter.removeItem(category, index, { dryRun });
+      if (result.outcome !== 'inactive') return `#${index} ${describeResult(result)}`;
+      log(`#${index} ${describeResult(result)}, sigo`);
+    }
+  };
 
   const onMessage = (event: WebViewMessageEvent) => {
     const msg = parseBridgeMessage(event.nativeEvent.data);
     if (!msg) return;
-    switch (msg.type) {
-      case 'log':
-        log(msg.text);
-        break;
-      case 'session':
-        setProfileUrl(msg.profileUrl);
-        log(`Sesión: ${msg.loggedIn ? 'iniciada' : 'no iniciada'} · perfil: ${msg.profileUrl ?? '—'}`);
-        break;
-      case 'inspect': {
-        const keys = Object.entries(msg.e2e)
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([k, n]) => `${k}×${n}`);
-        log(`Página ${msg.url}\ntítulo: ${msg.title} · texto: ${msg.textLength} caracteres\ndata-e2e: ${keys.join(', ') || '(ninguno)'}`);
-        if (keys.length === 0) log(`HTML: ${msg.snippet}`);
-        log(`Botones: ${msg.labels.join(' | ')}`);
-        break;
-      }
-      case 'result':
-        log(`${msg.ok ? '✅' : '❌'} ${msg.action}: ${msg.detail}`);
-        break;
-    }
+    if (msg.type === 'log') log(msg.text);
+    else runner.handle(msg);
+  };
+
+  const showInspection = (i: Inspection) => {
+    const keys = Object.entries(i.e2e)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, n]) => `${k}×${n}`);
+    if (keys.length === 0) log(`HTML: ${i.snippet}`);
+    log(`Botones: ${i.labels.join(' | ')}`);
+    return `${i.url}\ntítulo: ${i.title} · texto: ${i.textLength} caracteres\ndata-e2e: ${keys.join(', ') || '(ninguno)'}`;
   };
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
+      {/* WebView<P = undefined> se vuelve `never` con TS 6; se fija P = object explícitamente. */}
       <WebView<object>
-        ref={webview}
+        ref={view => runner.attach(view)}
         style={styles.web}
         source={{ uri: url }}
-        userAgent={TIKTOK.userAgent}
+        userAgent={adapter.userAgent}
         sharedCookiesEnabled
         thirdPartyCookiesEnabled
         setSupportMultipleWindows={false}
@@ -101,16 +132,32 @@ function DebugScreen() {
           <Btn label="Login" onPress={() => go(TIKTOK.loginUrl)} />
           <Btn label="QR" onPress={() => go(TIKTOK.qrLoginUrl)} />
           <Btn label="Inicio" onPress={() => go(TIKTOK.homeUrl)} />
-          <Btn label="Sesión" onPress={() => run(tiktok.detectSession())} />
-          <Btn label="Mi perfil" disabled={!profileUrl} onPress={() => run(tiktok.goToProfile())} />
-          <Btn label="Inspeccionar" onPress={() => run(tiktok.inspectPage())} />
+          <Btn
+            label="Sesión"
+            disabled={busy}
+            onPress={() =>
+              call('Sesión', adapter.detectSession, s => `${s.loggedIn ? 'iniciada' : 'no iniciada'} · perfil: ${s.profileUrl ?? '—'}`)
+            }
+          />
+          <Btn label="Bloqueo" disabled={busy} onPress={() => call('Bloqueo', adapter.detectBlock, b => b ?? 'ninguno')} />
+          <Btn label="Inspeccionar" disabled={busy} onPress={() => call('Página', () => runner.run<Inspection>(inspectPage()), showInspection)} />
         </View>
 
         {CATEGORIES.map(c => (
           <View key={c.key} style={styles.row}>
             <Text style={styles.cat}>{c.label}</Text>
-            <Btn label="Abrir pestaña" onPress={() => run(tiktok.openTab(c.key))} />
-            <Btn label="Eliminar 1" danger={!dryRun} onPress={() => run(tiktok.removeOne(c.key, dryRun))} />
+            <Btn
+              label="Abrir"
+              disabled={busy}
+              onPress={() => call(`Abrir ${c.label}`, () => adapter.openCategory(c.key), n => `${n} visibles`)}
+            />
+            <Btn label="Más" disabled={busy} onPress={() => call('Cargar más', adapter.loadMore, n => `${n} visibles`)} />
+            <Btn
+              label="Eliminar siguiente"
+              disabled={busy}
+              danger={!dryRun}
+              onPress={() => call(`Eliminar ${c.label}`, () => removeNext(c.key), r => r)}
+            />
           </View>
         ))}
 
@@ -118,6 +165,7 @@ function DebugScreen() {
           <Btn
             label={dryRun ? 'Modo prueba: SÍ (sin clic final)' : 'Modo prueba: NO (elimina de verdad)'}
             danger={!dryRun}
+            disabled={busy}
             onPress={() => setDryRun(v => !v)}
           />
           <Btn label="Limpiar log" onPress={() => setLogs([])} />

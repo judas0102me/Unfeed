@@ -1,0 +1,98 @@
+{
+  "common": {
+    "continue": "Continue",
+    "cancel": "Cancel",
+    "back": "Back"
+  },
+  "categories": {
+    "reposts": "Reposts",
+    "likes": "Likes",
+    "favorites": "Favorites"
+  },
+  "onboarding": {
+    "title": "How Unfeed works",
+    "login": "You sign in to TikTok inside the app. Unfeed never sees or stores your password.",
+    "how": "Unfeed opens each video and removes the like, favorite or repost for you, just like you would, at a human pace.",
+    "device": "Everything happens on your phone. Keep the app open while it cleans; the screen won't turn off.",
+    "riskTitle": "Before you start",
+    "risk": "TikTok has no official feature for this. If it sees a lot of activity it may ask you to verify or limit actions for a while. Unfeed goes slowly and stops if that happens.",
+    "googleTitle": "Do you sign in with Google or Apple?",
+    "google": "Google and Apple don't allow signing in inside other apps. Add an email or phone number to your TikTok account, or use the QR code from another device.",
+    "accept": "Got it"
+  },
+  "login": {
+    "title": "Sign in to TikTok",
+    "hint": "Use your email, phone or username. Google and Apple don't work here.",
+    "qr": "Use QR code",
+    "form": "Use email or phone",
+    "loggingOut": "Signing out…"
+  },
+  "clean": {
+    "account": "Account: @{{handle}}",
+    "settings": "Settings",
+    "quota": "{{remaining}} of {{limit}} removals left today",
+    "quotaEmpty": "You've used today's {{limit}} removals. Come back tomorrow.",
+    "choose": "What do you want to clean?",
+    "hint": "What you cross out gets removed.",
+    "start": "Start cleaning",
+    "dryRun": "Test mode: nothing will be removed",
+    "lastRun_one": "Last cleaning: {{count}} removed",
+    "lastRun_other": "Last cleaning: {{count}} removed"
+  },
+  "progress": {
+    "preparing": "Getting ready…",
+    "running": "Cleaning {{category}}…",
+    "paused": "Paused",
+    "resting": "Short break so TikTok doesn't get suspicious",
+    "verifying": "Confirm it's you",
+    "verifyingHint": "TikTok is asking for a verification. Complete it here and the cleaning will continue on its own.",
+    "removed_one": "removed",
+    "removed_other": "removed",
+    "row_one": "{{removed}} removed, {{skipped}} already gone",
+    "row_other": "{{removed}} removed, {{skipped}} already gone",
+    "quota": "{{remaining}} left today",
+    "keepOpen": "Keep the app open. The screen won't turn off.",
+    "pause": "Pause",
+    "resume": "Resume",
+    "stop": "Stop",
+    "notLoggedIn": "You're not signed in to TikTok."
+  },
+  "summary": {
+    "completed": "Done! There's nothing left to clean.",
+    "completedWithFailures_one": "Finished, but {{count}} couldn't be removed.",
+    "completedWithFailures_other": "Finished, but {{count}} couldn't be removed.",
+    "failedHint": "TikTok sometimes doesn't save the change. Try again later.",
+    "stopped": "You stopped the cleaning. You can continue any time.",
+    "daily_limit": "You reached today's limit. Continue tomorrow where you left off.",
+    "captcha": "TikTok asked for a verification. Wait a while and try again.",
+    "rate_limit": "TikTok is limiting actions. Wait a few hours before continuing.",
+    "logged_out": "Your TikTok session ended. Please sign in again.",
+    "too_many_failures": "Something failed several times in a row. Try again later.",
+    "error": "The cleaning stopped because of an error.",
+    "errorHint": "This is usually a temporary TikTok problem. Try again.",
+    "total_one": "removed in total",
+    "total_other": "removed in total",
+    "rowFailed_one": "{{removed}} removed, {{failed}} failed",
+    "rowFailed_other": "{{removed}} removed, {{failed}} failed",
+    "dryRun": "Test mode: nothing was actually removed.",
+    "home": "Back to start",
+    "login": "Sign in"
+  },
+  "settings": {
+    "title": "Settings",
+    "speed": "Speed",
+    "speedNormal": "Normal",
+    "speedCareful": "Careful",
+    "speedHint": "Careful speed is slower and lowers the chance of TikTok limiting your account.",
+    "language": "Language",
+    "languageHint": "Unfeed uses your phone's language.",
+    "languageOpen": "Change in phone Settings",
+    "account": "Account",
+    "logout": "Sign out",
+    "privacy": "Privacy",
+    "privacyText": "Unfeed has no servers that receive your data. Your TikTok session and progress are stored only on this phone, and we never see your password. Ads are served by Google AdMob, which may use your device's identifiers.",
+    "dev": "Development",
+    "dryRun": "Test mode (no final tap)",
+    "debug": "Debug panel"
+  }
+}
